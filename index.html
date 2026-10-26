@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Ahorrometro 💰</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💰%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0e1117">
 <style>
   :root{
     color-scheme:dark;
@@ -133,6 +135,14 @@
   input,select{font-size:16px}
   body{padding-left:12px; padding-right:12px}
 }
+  /* Recordatorio de respaldo */
+  .nudge{background:var(--card);border:1px solid #5a4d22;border-radius:12px;padding:10px 14px;margin:14px 0 0;display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:.86rem;color:var(--txt)}
+  .nudge .btn-ghost{margin-left:auto}
+  /* Historial agrupado por mes */
+  tr.mes-sum{background:var(--card2, rgba(255,255,255,.04));cursor:pointer;user-select:none}
+  tr.mes-sum td{border-top:2px solid var(--track)}
+  /* Historial de tasas */
+  .tasa-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 10px;border:1px solid var(--track);border-radius:10px;margin-bottom:6px;font-size:.84rem;background:var(--card2, rgba(255,255,255,.04))}
 </style>
 </head>
 <body>
@@ -150,9 +160,10 @@
     </div>
   </header>
 
+  <div class="nudge" id="backupNudge" hidden>⚠️ <span>Tu historial vive en este navegador (localStorage) y puede borrarse. <b>Respaldalo</b> para no perderlo.</span> <button class="btn-ghost" id="btnNudgeBackup" type="button">Respaldar ahora</button> <button class="btn-ghost" id="btnNudgeLater" type="button">Después</button></div>
   <div class="stats">
     <div class="stat"><div class="lbl">Total hoy</div><div class="val" id="stTotal">$0</div></div>
-    <div class="stat deposits"><div class="lbl">Aportado</div><div class="val" id="stDeposited">$0</div></div>
+    <div class="stat deposits"><div class="lbl" id="stDepositedLbl">Aportado</div><div class="val" id="stDeposited">$0</div></div>
     <div class="stat gain"><div class="lbl">Intereses ganados</div><div class="val" id="stGain">$0</div></div>
     <div class="stat rate"><div class="lbl">Días ahorrando</div><div class="val" id="stDays">—</div></div>
   </div>
@@ -194,12 +205,40 @@
   </div>
 
   <div class="card">
-    <h2>📊 Evolución del fondo</h2>
+    <h2>💸 Registrar retiro real</h2>
+    <div class="sub">Sacaste plata del fondo en Mercado Pago? Regístralo acá: así tu balance tracked no se despegue de la realidad</div>
+    <div class="form-row">
+      <div><label for="rtDate">Fecha</label><input type="date" id="rtDate"></div>
+      <div class="amt"><label for="rtAmount">Monto retirado ($)</label><input type="number" id="rtAmount" min="1" step="0.01" placeholder="100000"></div>
+    </div>
+    <label for="rtNote">Nota (opcional)</label>
+    <input type="text" id="rtNote" maxlength="60" placeholder="Pago de alquiler, urgencia…">
+    <div style="margin-top:14px">
+      <button class="btn-primary" id="btnRetiro" type="button">Registrar retiro 💸</button>
+      <button class="btn-ghost" id="btnRepAporte" type="button" style="margin-left:8px" title="Registra de nuevo el último aporte">↻ Repetir último aporte</button>
+    </div>
+    <div class="hint" id="rtInfo"></div>
+  </div>
+
+  <div class="card">
+    <h2>📊 Historial de tasas</h2>
+    <div class="sub">Mercado Pago cambia la tasa seguido: anotá cada cambio y los intereses históricos se calculan con la tasa que regía en cada época</div>
+    <div class="form-row">
+      <div><label for="thDate">Vigente desde</label><input type="date" id="thDate"></div>
+      <div class="amt"><label for="thTasa">Tasa anual (%)</label><input type="number" id="thTasa" min="0" max="500" step="0.1" placeholder="35"></div>
+      <button class="btn-primary" id="btnTasaHist" type="button" style="width:auto">Agregar cambio</button>
+    </div>
+    <div id="tasaHistList" style="margin-top:10px"></div>
+    <div class="hint" id="tasaHistInfo" style="margin-top:8px"></div>
+  </div>
+
+  <div class="card">
+    <h2>📈 Evolución del fondo</h2>
     <div class="chart-wrap">
       <svg class="chart" id="chart" preserveAspectRatio="none" viewBox="0 0 900 220"></svg>
       <div id="chartTip"></div>
     </div>
-    <div class="hint">Pasá el mouse por la gráfica para ver el detalle de cada día · Verde: total del fondo · puntos azules: tus aportes · línea azul punteada: solo lo que aportaste</div>
+    <div class="hint">Pasá el mouse por la gráfica para ver el detalle de cada día · Verde: total del fondo · puntos azules: tus aportes · línea azul punteada: solo lo que aportaste · dorada: proyección hasta la meta 🎯</div>
   </div>
 
   <div class="card">
@@ -232,6 +271,10 @@
         <button class="pill" type="button" data-gname="💍 Boda">💍 Boda</button>
 
       </div>
+
+      <label for="ipcInput">IPC mensual estimado (%) — opcional</label>
+      <input type="number" id="ipcInput" min="0" max="100" step="0.1" placeholder="0 = desactivado">
+      <div class="hint">Con un IPC (ICAR) la meta crece en valor nominal: te mostramos a cuánto equivale al llegar, y cuánto vale en poder de compra de hoy.</div>
 
       <label>Simulador: aporte extra mensual</label>
       <div class="form-row" style="margin-top:0">
@@ -268,7 +311,7 @@
 
     <div class="goal-result" id="wtResult"></div>
 
-    <div class="hint">Se calculan los rendimientos hasta esa fecha; el retiro se asume justo ese día y no toca tu historial (es solo una simulación).</div>
+    <div class="hint">Es solo una simulación: no toca tu historial. Si ya retiraste la plata de verdad, regístrala en la sección «Registrar retiro real».</div>
 
   </div>
 
@@ -299,6 +342,7 @@
         <button class="btn-ghost" id="btnBackup" type="button">Respaldar</button>
         <button class="btn-ghost" id="btnRestore" type="button">Restaurar</button>
         <input type="file" id="fileRestore" accept=".json,application/json" style="display:none">
+        <button class="btn-ghost" id="btnViewMode" type="button" title="Agrupar el historial por mes (el último mes se muestra abierto)">📅 Por mes</button>
         <button class="btn-danger" id="btnClear" type="button">Borrar todo</button>
       </div>
     </div>
@@ -350,15 +394,21 @@
 const LS_KEY = "ahorrometro_v1";
 const state = {
   contributions: [],   // { id, date (YYYY-MM-DD), amount, note }
+  retiros: [],         // { id, date, amount, note } — retiros reales del fondo
   tasa: 40,
   tasaType: "TNA",     // "TNA" | "TAE"
+  tasaHist: [],        // [{ desde (ISO), tasa }] — tasa anual vigente desde esa fecha (historial)
   compound: true,      // reinvertir intereses
   meta: null,          // meta del fondo ($ o null)
   metaName: "",        // nombre de la meta (texto)
+  inflacionMensual: 0, // % IPC/mes (ICAR). 0 = desactivado: la meta se estima en poder de compra
   // Simulador de aporte mensual extra (se usa en Metas y Proyección)
   aporteExtra: { monto: 0, mode: "dia", dia: 1, hab: 1 },
   diaAjuste: {},       // { ISO-día -> valor real abonado por Mercado Pago }
-  feriados: []         // días no hábiles extra (MP tampoco abona feriados)
+  feriados: [],        // días no hábiles extra (MP tampoco abona feriados)
+  lastBackup: null,    // fecha (ISO) del último respaldo
+  lastNudge: null,     // fecha (ISO) del último recordatorio de respaldo
+  viewMode: "dias"     // historial: "dias" (día a día) | "mes" (agrupado por mes)
 };
 /* ================= Feriados oficiales de Argentina (precargados por año) =================
    Las fechas corresponden al DÍA EFECTIVO del feriado (ya con traspaso cuando corresponde:
@@ -487,6 +537,22 @@ if(typeof d.metaName === "string") state.metaName = d.metaName;
         }
         state.diaAjuste = clean;
       }
+      if(Array.isArray(d.retiros)){
+        state.retiros = d.retiros
+          .filter(x => x && typeof x.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.date) && isFinite(x.amount) && x.amount > 0)
+          .map(x => ({ id: (typeof x.id === "string" && x.id) ? x.id : newId(), date: x.date, amount: x.amount, note: (typeof x.note === "string") ? x.note : "" }))
+          .sort((a,b)=> a.date.localeCompare(b.date));
+      }
+      if(Array.isArray(d.tasaHist)){
+        state.tasaHist = d.tasaHist
+          .filter(x => x && typeof x.desde === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.desde) && isFinite(x.tasa) && x.tasa >= 0 && x.tasa <= 500)
+          .map(x => ({ desde: x.desde, tasa: x.tasa }))
+          .sort((a,b)=> a.desde.localeCompare(b.desde));
+      }
+      if(typeof d.inflacionMensual === "number" && isFinite(d.inflacionMensual) && d.inflacionMensual >= 0 && d.inflacionMensual <= 100) state.inflacionMensual = d.inflacionMensual;
+      if(typeof d.lastBackup === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.lastBackup)) state.lastBackup = d.lastBackup;
+      if(typeof d.lastNudge === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.lastNudge)) state.lastNudge = d.lastNudge;
+      if(d.viewMode === "dias" || d.viewMode === "mes") state.viewMode = d.viewMode;
     }
   }catch(e){ console.warn("No se pudo leer el estado", e); }
 }
@@ -547,7 +613,9 @@ function simulate(contribs, tasa, hastaStr){
   const puntos = [];
   let acc = 0;
   for(const f of filas){
-    acc += (f.tipo === "aporte" ? f.aporte : f.interes);
+    if(f.tipo === "aporte") acc += f.aporte;
+    else if(f.tipo === "retiro") acc -= f.retiro;
+    else acc += f.interes;
     if(f.tipo === "interes") puntos.push({ date: f.iso, balance: acc });
   }
   return { balance: balanceTotal, puntos, filas };
@@ -567,45 +635,78 @@ function aportesPorDia(contribs, hastaStr){
   }
   return m;
 }
+function retirosPorDia(rets, hastaStr){
+  const m = {};
+  for(const r of rets || []){
+    if(!r || typeof r.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(r.date)) continue;
+    if(!isFinite(r.amount)) continue;
+    if(r.date > hastaStr) continue;
+    m[r.date] = (m[r.date] || 0) + r.amount;
+  }
+  return m;
+}
+// Tasa anual vigente en una fecha: si hay historial de cambios (tasaHist), rige el
+// último cambio con "desde" anterior o igual a la fecha; si no, la tasa actual del
+// fondo (o el fallback que le pase el motor, si lo hay).
+function tasaParaFecha(iso, fallback){
+  let t = (fallback != null) ? fallback : state.tasa;
+  for(const h of state.tasaHist){
+    if(h.desde <= iso) t = h.tasa; else break;
+  }
+  return t;
+}
 function buildTimeline(contribs, tasa, hastaStr){
   const byDay = aportesPorDia(contribs, hastaStr);
+  const byRet = retirosPorDia(state.retiros, hastaStr);
   const fechas = Object.keys(byDay).sort();
   const depositado = fechas.reduce((s,f)=>s + byDay[f], 0);
-  if(!fechas.length) return { filas: [], balanceTotal: 0, depositado: 0, pendientes: 0, real: null };
+  const retirosTotal = Object.keys(byRet).reduce((s,f)=>s + byRet[f], 0);
+  if(!fechas.length) return { filas: [], balanceTotal: Math.max(0, -retirosTotal), depositado: 0, retirosTotal: 0, baseFinal: 0, pendientes: 0, real: null };
   const first = fechas[0];
-  // Tasa diaria vigente: arranca con la configurada y se RECALCULA cada vez que hay un día corregido
-  // a mano (ahí se despeja la tasa implícita) y se arrastra a los días siguientes sin corregir.
-  let daily = dailyRate(+tasa, state.tasaType);
+  // Tasa diaria: varía por fecha según el historial de cambios de tasa, y la
+  // calibración manual de un día "arrastra" la tasa observada a los días
+  // siguientes sin corregir (igual que antes).
+  let carry = null;
+  const dailyFor = iso => (carry != null) ? carry : dailyRate(tasaParaFecha(iso, tasa), state.tasaType);
   const totalDias = Math.round((new Date(hastaStr+"T12:00:00") - new Date(first+"T12:00:00")) / 86400000);
   const filas = [], obs = [];
   // saldoAntes = balance ENTRANTE del día (aportes de días anteriores, no el de hoy).
-  // pend = días no hábiles (sáb, dom, feriados) acumulados: se pagan juntos en el próximo día hábil.
-  let saldoAntes = 0, pend = 0, bal = depositado;
+  // pend/streakProd = racha de días no hábiles (sáb, dom, feriados): se pagan juntos en
+  // el próximo día hábil, con el producto de las tasas diarias de CADA día de la racha.
+  // Los retiros bajan el saldo y la base de interés desde el día en que ocurren.
+  let saldoAntes = 0, pend = 0, streakProd = 1;
+  let bal = depositado - retirosTotal;
   for(let i = 0; i <= totalDias; i++){
     const iso = addDiasISO(first, i);
     const dow = new Date(iso+"T12:00:00").getDay();
     const ap  = byDay[iso] || 0;
+    const ret = byRet[iso] || 0;
     if(ap > 0) filas.push({ iso, tipo:"aporte", aporte: ap, diaDeLabel: fmtFecha(iso) });
+    if(ret > 0) filas.push({ iso, tipo:"retiro", retiro: ret, diaDeLabel: fmtFecha(iso) });
 
     const adj  = state.diaAjuste[iso];
     const real = (typeof adj === "number" && isFinite(adj) && adj >= 0);
     // Un feriado con valor cargado a mano se respeta como día pagado.
     if(dow === 0 || dow === 6 || (esFeriado(iso) && !real)){
+      streakProd *= (1 + dailyFor(iso));
       saldoAntes += ap;
+      if(ret > 0) saldoAntes = Math.max(0, saldoAntes - ret);
       pend++;
       continue;
     }
 
+    streakProd *= (1 + dailyFor(iso));
     const nD  = pend + 1;
-    const est = (daily > 0 && saldoAntes > 0)
-      ? saldoAntes * (Math.pow(1 + daily, nD) - 1) : 0;
+    // Si todos los días de la racha tuvieron la misma tasa d, streakProd = (1+d)^nD
+    // y esto se reduce exactamente a la fórmula original.
+    const est = saldoAntes * (streakProd - 1);
     const ini = real ? adj : Math.max(0, est);
-    let tasaDia = daily;
+    let tasaDia = Math.pow(streakProd, 1 / nD) - 1;
     if(real && saldoAntes > 0 && adj > 0){
-      // interés = saldo * ((1+d)^nD - 1)  →  d = (1 + interés/saldo)^(1/nD) - 1
-      daily = Math.pow(1 + adj / saldoAntes, 1 / nD) - 1;
-      tasaDia = daily;
-      obs.push({ iso, nD, saldoAntes, interes: adj, d: daily });
+      // interés = saldo * (Π(1+d_k) - 1)  →  d equivalente = (1 + interés/saldo)^(1/nD) - 1
+      carry = Math.pow(1 + adj / saldoAntes, 1 / nD) - 1;
+      tasaDia = carry;
+      obs.push({ iso, nD, saldoAntes, interes: adj, d: carry });
     }
     if((est > 0) || real){
       filas.push({
@@ -621,7 +722,9 @@ function buildTimeline(contribs, tasa, hastaStr){
     }
     bal += ini;
     saldoAntes += ap + (state.compound ? ini : 0);
+    if(ret > 0) saldoAntes = Math.max(0, saldoAntes - ret);
     pend = 0;
+    streakProd = 1;
   }
   // Tasa real estimada: promedio de las tasas diarias observadas, ponderado por saldo × días.
   let realRes = null;
@@ -634,7 +737,7 @@ function buildTimeline(contribs, tasa, hastaStr){
                 tnaAvg: dAvg * 365 * 100, teaAvg: (Math.pow(1 + dAvg, 365) - 1) * 100,
                 tnaLast: dLast * 365 * 100 };
   }
-  return { filas, balanceTotal: bal, depositado, pendientes: pend, real: realRes };
+  return { filas, balanceTotal: bal, depositado, retirosTotal, baseFinal: saldoAntes, pendientes: pend, real: realRes };
 }
 /* ================= Utilidades ================= */
 const $ = id => document.getElementById(id);
@@ -844,19 +947,20 @@ function renderAll(){
   const tl = buildTimeline(contribs, state.tasa, hoy);
   const balance = tl.balanceTotal;
   const depositado = tl.depositado;
-  const ganancia = balance - depositado;
   const pointsAcc = [];
   let balAcc = 0;
   for(const f of tl.filas){
     if(f.tipo === "aporte") balAcc += f.aporte;
+    else if(f.tipo === "retiro") balAcc -= f.retiro;
     else balAcc += f.interes;
     pointsAcc.push({ date: f.iso, balance: balAcc });
   }
   const puntos = pointsAcc;
 
   setStat("stTotal", fmt$(balance));
-  setStat("stDeposited", fmt$(depositado));
-  setStat("stGain", fmt$(ganancia));
+  $("stDepositedLbl").textContent = tl.retirosTotal > 0 ? "Aportado (neto)" : "Aportado";
+  setStat("stDeposited", fmt$(depositado - tl.retirosTotal));
+  setStat("stGain", fmt$(balance - depositado + tl.retirosTotal));
   setStat("stDays", contribs.length ? diasEntre(contribs[0].date, hoy) + " días" : "—");
   $("rateBadge").textContent = state.tasa + " % " + state.tasaType;
   // Chip "hoy": fecha de hoy + lo que Mercado Pago abona hoy (o por qué no abona).
@@ -878,44 +982,23 @@ function renderAll(){
   $("pillTNA").classList.toggle("active", state.tasaType==="TNA");
   $("pillTAE").classList.toggle("active", state.tasaType==="TAE");
 
-  $("histCount").textContent = contribs.length + (contribs.length === 1 ? " aporte" : " aportes");
-  $("emptyState").style.display = contribs.length ? "none" : "block";
-  $("histTable").style.display = contribs.length ? "table" : "none";
-
-  // Historial: cada día (aporte e interés pago MP) en el timeline.
-  // La celda de interés es clickeable para corregirla a lo que MP realmente abonó.
-  const tbody = document.querySelector("#histTable tbody");
-  tbody.innerHTML = "";
-  const noteByDate = {};
-  for(const c of contribs) noteByDate[c.date] = noteByDate[c.date] ? noteByDate[c.date] + (c.note ? " · " + c.note : "") : (c.note || "");
-  for(const f of tl.filas){
-    const row = document.createElement("tr");
-    if(f.tipo === "aporte"){
-      row.innerHTML =
-        `<td>${fmtFecha(f.iso)}</td>` +
-        `<td class="muted">${escapeHtml(noteByDate[f.iso] || "—")}</td>` +
-        `<td class="money">${fmt$(f.aporte)}</td>` +
-        `<td class="muted">—</td>` +
-        `<td>${contribs.filter(c=>c.date===f.iso).map(c=>`<button class="del" data-id="${escapeHtml(c.id)}" title="Eliminar aporte de ${fmt$(c.amount)}" type="button">✕</button>`).join("")}</td>`;
-    } else {
-      const extra = f.nDias > 1 ? ` <span class="muted" title="Incluye fin de semana (MP abona de una vez)">${f.nDias}d</span>` : "";
-      row.innerHTML =
-        `<td>${fmtFecha(f.iso)}${extra}</td>` +
-        `<td class="muted">abono MP</td>` +
-        `<td class="muted">—</td>` +
-        `<td><span class="gain-cell gain-cell-day" data-iso="${f.iso}" title="${f.ajustado ? "Clic para editar el interés manual" : "Clic para corregir a lo que MP realmente te abonó"}" style="cursor:pointer;user-select:none${f.ajustado ? ";border-bottom:1px dashed var(--blue)" : ""}">+${fmt$(f.interes)} <span style="color:var(--muted);font-size:.85em">✎</span></span>` +
-        (f.ajustado ? `<button class="del" data-iso-und="${f.iso}" title="Volver al cálculo automático" type="button" style="margin-left:6px">↺</button>` : ``) +
-        `</td><td class="muted" style="font-size:.78rem;white-space:nowrap${f.ajustado ? ";color:var(--blue)" : ""}" title="${f.ajustado ? "Tasa calculada a partir del valor que cargaste" : "Tasa estimada (arrastrada del último día corregido)"}">${fmtPct(f.tasaDia * 365 * 100)} TNA</td>`;
-    }
-    tbody.appendChild(row);
-  }
+  const nRetiros = state.retiros.filter(r => r.date <= hoy).length;
+  $("histCount").textContent = contribs.length + (contribs.length === 1 ? " aporte" : " aportes") +
+    (nRetiros ? " · " + nRetiros + (nRetiros === 1 ? " retiro" : " retiros") : "");
+  $("emptyState").style.display = tl.filas.length ? "none" : "block";
+  $("histTable").style.display = tl.filas.length ? "table" : "none";
+  $("btnViewMode").textContent = state.viewMode === "mes" ? "🗓️ Día a día" : "📅 Por mes";
+  renderHistorial(tl, contribs);
 
   renderTasaReal(tl);
   renderFeriados();
-  drawChart(puntos, contribs, tl.filas);
+  renderRetiros();
+  renderTasaHist();
+  checkBackupNudge();
+  drawChart(puntos, contribs, tl.filas, projPuntosForChart(balance, tl));
   renderGoal(balance, tl);
   renderProjection(balance, tl);
-renderWithdrawal();
+  renderWithdrawal(tl);
 }
 
 /* ================= Tasa real estimada + feriados ================= */
@@ -950,21 +1033,172 @@ function renderFeriados(){
       }).join("")
     : `<span class="hint">Sin feriados cargados. Usá los botones de arriba para precargar el calendario oficial.</span>`;
 }
+/* ================= Retiros reales del fondo ================= */
+function renderRetiros(){
+  const box = $("rtInfo");
+  if(!box) return;
+  if(!state.retiros.length){ box.textContent = ""; return; }
+  const neto = state.contributions.reduce((s,c)=>s+c.amount,0) - state.retiros.reduce((s,r)=>s+r.amount,0);
+  box.innerHTML = `Tenés <b>${state.retiros.length}</b> ${state.retiros.length === 1 ? "retiro" : "retiros"} registrado(s). Aportado neto: <b>${fmt$(neto)}</b> · Balance actual: <b>${fmt$(calcBalanceHoy())}</b>. Cada retiro deja de generar interés desde su fecha; podés quitarlo con el ✕ del historial.`;
+}
+/* ================= Historial de cambios de tasa ================= */
+function renderTasaHist(){
+  const box = $("tasaHistList");
+  const info = $("tasaHistInfo");
+  if(!box || !info) return;
+  if(!state.tasaHist.length){
+    box.innerHTML = "";
+    info.textContent = "Sin cambios cargados: se usa la tasa actual del fondo para todo el historial.";
+    return;
+  }
+  const lista = [...state.tasaHist].sort((a,b)=> b.desde.localeCompare(a.desde));
+  box.innerHTML = lista.map(h =>
+    `<div class="tasa-row"><span><b>${h.tasa} % ${state.tasaType}</b> <span class="muted">vigente desde ${fmtFecha(h.desde)}</span></span>` +
+    `<button class="del" type="button" data-thdel="${h.desde}" title="Quitar este cambio">✕</button></div>`
+  ).join("");
+  const vigentes = state.tasaHist.filter(h => h.desde <= hoyISO()).sort((a,b)=> a.desde.localeCompare(b.desde));
+  const vigente = vigentes[vigentes.length - 1];
+  info.innerHTML = vigente
+    ? `Tasa vigente hoy: <b>${vigente.tasa} % ${state.tasaType}</b> (cargada desde ${fmtFecha(vigente.desde)}).`
+    : `Tasa vigente hoy: ${state.tasa} % ${state.tasaType} (la del fondo; tus cambios cargados son futuros).`;
+}
+/* ================= Recordatorio de respaldo ================= */
+function checkBackupNudge(){
+  const n = $("backupNudge");
+  if(!n) return;
+  if(!state.contributions.length && !state.retiros.length){ n.hidden = true; return; }
+  const hoy = hoyISO();
+  let last = state.lastBackup;
+  if(!last){
+    const stored = localStorage.getItem(LS_KEY);
+    if(stored){
+      try{
+        const d = JSON.parse(stored);
+        if(d && d.lastBackup) last = d.lastBackup;
+      }catch(_){}
+    }
+  }
+  if(!last){ n.hidden = false; return; }
+  const days = Math.floor((Date.parse(hoy+"T12:00:00") - Date.parse(last+"T12:00:00")) / 86400000);
+  const lastNudge = state.lastNudge;
+  n.hidden = !(days >= 30 && (!lastNudge || lastNudge < addDiasISO(hoy, -14)));
+}
+
+/* ================= Historial (día a día / por mes) ================= */
+const MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+// Una fila del historial (aporte, retiro o abono de interés).
+function filaHistorial(f, contribs, noteByDate, retByDate){
+  const row = document.createElement("tr");
+  if(f.tipo === "aporte"){
+    row.innerHTML =
+      `<td>${fmtFecha(f.iso)}</td>` +
+      `<td class="muted">${escapeHtml(noteByDate[f.iso] || "—")}</td>` +
+      `<td class="money">${fmt$(f.aporte)}</td>` +
+      `<td class="muted">—</td>` +
+      `<td>${contribs.filter(c=>c.date===f.iso).map(c=>`<button class="del" data-id="${escapeHtml(c.id)}" title="Eliminar aporte de ${fmt$(c.amount)}" type="button">✕</button>`).join("")}</td>`;
+  } else if(f.tipo === "retiro"){
+    row.innerHTML =
+      `<td>${fmtFecha(f.iso)}</td>` +
+      `<td class="muted">${escapeHtml(retByDate[f.iso] || "retiro")}</td>` +
+      `<td class="money" style="color:var(--red)">-${fmt$(f.retiro)}</td>` +
+      `<td class="muted">—</td>` +
+      `<td>${(state.retiros || []).filter(r=>r.date===f.iso).map(r=>`<button class="del" data-retid="${escapeHtml(r.id)}" title="Eliminar retiro" type="button">✕</button>`).join("")}</td>`;
+  } else {
+    const extra = f.nDias > 1 ? ` <span class="muted" title="Incluye fin de semana (MP abona de una vez)">${f.nDias}d</span>` : "";
+    row.innerHTML =
+      `<td>${fmtFecha(f.iso)}${extra}</td>` +
+      `<td class="muted">abono MP</td>` +
+      `<td class="muted">—</td>` +
+      `<td><span class="gain-cell gain-cell-day" data-iso="${f.iso}" title="${f.ajustado ? "Clic para editar el interés manual" : "Clic para corregir a lo que MP realmente te abonó"}" style="cursor:pointer;user-select:none${f.ajustado ? ";border-bottom:1px dashed var(--blue)" : ""}">+${fmt$(f.interes)} <span style="color:var(--muted);font-size:.85em">✎</span></span>` +
+      (f.ajustado ? `<button class="del" data-iso-und="${f.iso}" title="Volver al cálculo automático" type="button" style="margin-left:6px">↺</button>` : ``) +
+      `</td><td class="muted" style="font-size:.78rem;white-space:nowrap${f.ajustado ? ";color:var(--blue)" : ""}" title="${f.ajustado ? "Tasa calculada a partir del valor que cargaste" : "Tasa estimada (histórico de tasas / arrastrada del último día corregido)"}">${fmtPct(f.tasaDia * 365 * 100)} TNA</td>`;
+  }
+  return row;
+}
+// Historial: cada día (aporte, retiro e interés) en el timeline. La celda de interés
+// es clickeable para corregirla a lo que MP realmente abonó. Con viewMode="mes"
+// se agrupa por mes (fila de totales + detalle desplegable; el último mes abierto).
+function renderHistorial(tl, contribs){
+  const tbody = document.querySelector("#histTable tbody");
+  tbody.innerHTML = "";
+  const noteByDate = {};
+  for(const c of contribs) noteByDate[c.date] = noteByDate[c.date] ? noteByDate[c.date] + (c.note ? " · " + c.note : "") : (c.note || "");
+  const retByDate = {};
+  for(const r of state.retiros || []) retByDate[r.date] = retByDate[r.date] ? retByDate[r.date] + " · " + (r.note || "retiro") : (r.note || "retiro");
+  if(state.viewMode !== "mes"){
+    for(const f of tl.filas) tbody.appendChild(filaHistorial(f, contribs, noteByDate, retByDate));
+    return;
+  }
+  const groups = {};
+  for(const f of tl.filas){
+    const mm = f.iso.slice(0,7);
+    if(!groups[mm]) groups[mm] = { ap:0, ret:0, ini:0, n:0, rows:[] };
+    const g = groups[mm];
+    if(f.tipo === "aporte") g.ap += f.aporte;
+    else if(f.tipo === "retiro") g.ret += f.retiro;
+    else g.ini += f.interes;
+    g.n++;
+    g.rows.push(f);
+  }
+  const months = Object.keys(groups).sort();
+  const last = months[months.length - 1];
+  for(const mm of months){
+    const g = groups[mm];
+    const open = (mm === last);
+    const sum = document.createElement("tr");
+    sum.className = "mes-sum";
+    sum.setAttribute("data-mm", mm);
+    sum.setAttribute("data-abierto", open ? "1" : "0");
+    sum.style.cursor = "pointer";
+    sum.innerHTML =
+      `<td><b>${MESES[+mm.slice(5,7)-1]}</b> <span class="muted">${mm.slice(0,4)}</span> <span class="muted">${open ? "▾" : "▸"}</span></td>` +
+      `<td class="muted">${g.n} mov.</td>` +
+      `<td class="money">${g.ap ? fmt$(g.ap) : "—"}${g.ret ? ` <span style="color:var(--red)">-${fmt$(g.ret)}</span>` : ""}</td>` +
+      `<td class="gain-cell">${g.ini ? "+" + fmt$(g.ini) : "—"}</td><td></td>`;
+    tbody.appendChild(sum);
+    for(const f of g.rows){
+      const row = filaHistorial(f, contribs, noteByDate, retByDate);
+      row.className = "mes-det";
+      row.setAttribute("data-mm", mm);
+      row.style.display = open ? "" : "none";
+      tbody.appendChild(row);
+    }
+  }
+}
+// Puntos de la proyección para la gráfica: hasta la meta (tope 2 años), con el
+// mismo motor del historial. Sin meta, array vacío.
+function projPuntosForChart(current, tl){
+  if(!(state.meta > 0) || !state.contributions.length) return [];
+  const base0 = state.compound ? current : (tl && tl.baseFinal != null ? tl.baseFinal : baseDeInteresHoy());
+  const r = diasParaMetaConAportes(current, state.meta, state.aporteExtra, base0);
+  const n = Math.min(r ? r.dias : 730, 730);
+  if(n < 1) return [];
+  const p = proyectarFuturo(current, n, state.aporteExtra, base0);
+  return p.puntos || [];
+}
 
 /* ================= Gráfica SVG ================= */
-function drawChart(puntos, contribs, filas){
+function drawChart(puntos, contribs, filas, projPuntos){
   const svg = $("chart");
   const tip = $("chartTip");
   const W = Math.max(280, Math.round(svg.clientWidth || 900)), H = 220, P = { t:14, r:16, b:30, l:62 };
   svg.setAttribute("viewBox", "0 0 " + W + " " + H);
-  if(puntos.length < 2){
+  const nHist = puntos.length;
+  const proj = (projPuntos || []).filter(p => p && p.date && (!nHist || p.date > puntos[nHist-1].date));
+  const all = puntos.concat(proj);
+  if(all.length < 2){
     svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" style="fill:var(--muted)" font-size="14">Registra aportes para ver la evolución 📊</text>`;
     if(tip) tip.style.opacity = 0;
     return;
   }
-  const valores = puntos.map(p=>p.balance);
-  const max = Math.max(...valores) * 1.08;
-  const n = puntos.length;
+  const valores = all.map(p=>p.balance);
+  const meta = +state.meta || 0;
+  let max = Math.max(...valores, 0) * 1.08;
+  // La línea de la meta solo se dibuja si cabe: si la meta está muy por arriba,
+  // achataría la curva (se muestra igual en la tarjeta de metas).
+  const metaVisible = meta > 0 && meta <= Math.max(...valores, 0) * 1.35;
+  if(metaVisible) max = Math.max(max, meta * 1.08);
+  const n = all.length;
   const x = i => P.l + (W - P.l - P.r) * (i/(n-1));
   const y = v => P.t + (H - P.t - P.b) * (1 - v/(max || 1));
   const compact = new Intl.NumberFormat("es-AR", { notation:"compact", maximumFractionDigits:1 });
@@ -975,9 +1209,14 @@ function drawChart(puntos, contribs, filas){
     s += `<line x1="${P.l}" y1="${gy}" x2="${W-P.r}" y2="${gy}" style="stroke:var(--track)" stroke-width="1"/>`;
     s += `<text x="${P.l-8}" y="${gy+4}" text-anchor="end" style="fill:var(--muted)" font-size="10.5">${compact.format(max*(1 - g/5))}</text>`;
   }
+  // Meta: línea horizontal dorada con etiqueta.
+  if(metaVisible){
+    s += `<line x1="${P.l}" y1="${y(meta)}" x2="${W-P.r}" y2="${y(meta)}" style="stroke:#eab308" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.85"/>`;
+    s += `<text x="${W-P.r-4}" y="${y(meta)-5}" text-anchor="end" style="fill:#eab308" font-size="10.5" font-weight="700">🎯 meta ${compact.format(meta)}</text>`;
+  }
   let area = `M ${x(0)} ${y(valores[0])}`;
-  for(let i=1;i<n;i++) area += ` L ${x(i)} ${y(valores[i])}`;
-  area += ` L ${x(n-1)} ${H-P.b} L ${x(0)} ${H-P.b} Z`;
+  for(let i=1;i<nHist;i++) area += ` L ${x(i)} ${y(valores[i])}`;
+  area += ` L ${x(nHist-1)} ${H-P.b} L ${x(0)} ${H-P.b} Z`;
   s += `<defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="#3ddc84" stop-opacity="0.28"/>
           <stop offset="100%" stop-color="#3ddc84" stop-opacity="0"/>
@@ -985,25 +1224,44 @@ function drawChart(puntos, contribs, filas){
   s += `<path d="${area}" fill="url(#ga)"/>`;
 
   let line = `M ${x(0)} ${y(valores[0])}`;
-  for(let i=1;i<n;i++) line += ` L ${x(i)} ${y(valores[i])}`;
+  for(let i=1;i<nHist;i++) line += ` L ${x(i)} ${y(valores[i])}`;
   s += `<path d="${line}" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linejoin="round"/>`;
+
+  // Proyección (dorado punteado): desde el último día real hasta la meta (tope 2 años).
+  if(proj.length){
+    let lp = `M ${x(nHist-1)} ${y(valores[nHist-1])}`;
+    for(let i=0;i<proj.length;i++) lp += ` L ${x(nHist+i)} ${y(valores[nHist+i])}`;
+    s += `<path d="${lp}" fill="none" stroke="#eab308" stroke-width="2" stroke-dasharray="5 5" opacity="0.85"/>`;
+  }
 
   const map = {};
   for(const c of [...contribs].sort((a,b)=>a.date.localeCompare(b.date))) map[c.date] = (map[c.date]||0) + c.amount;
   let sum = 0, dep = [];
-  for(const p of puntos){ sum += (map[p.date]||0); dep.push(sum); }
+  for(const p of all){ sum += (map[p.date]||0); dep.push(sum); }
   let line2 = `M ${x(0)} ${y(dep[0])}`;
   for(let i=1;i<n;i++) line2 += ` L ${x(i)} ${y(dep[i])}`;
   s += `<path d="${line2}" fill="none" stroke="#4f9cf9" stroke-width="1.5" stroke-dasharray="5 5" opacity="0.7"/>`;
 
-  for(let i=0;i<n;i++){
-    if(map[puntos[i].date]){
+  for(let i=0;i<nHist;i++){
+    if(map[all[i].date]){
       s += `<circle cx="${x(i)}" cy="${y(valores[i])}" r="5" fill="#4f9cf9" style="stroke:var(--bg)" stroke-width="2"/>`;
+    }
+  }
+  // Retiros: punto rojo.
+  if(filas){
+    for(const f of filas){
+      if(f.tipo === "retiro"){
+        const idx = all.findIndex(p => p.date === f.iso);
+        if(idx >= 0) s += `<circle cx="${x(idx)}" cy="${y(valores[idx])}" r="4.5" fill="var(--red)" style="stroke:var(--bg)" stroke-width="2"/>`;
+      }
     }
   }
   const pasoLabel = Math.max(1, Math.floor(n/6));
   for(let i=0;i<n;i+=pasoLabel){
-    s += `<text x="${x(i)}" y="${H-8}" text-anchor="middle" style="fill:var(--muted)" font-size="10">${fmtFecha(puntos[i].date).slice(0,5)}</text>`;
+    s += `<text x="${x(i)}" y="${H-8}" text-anchor="middle" style="fill:var(--muted)" font-size="10">${fmtFecha(all[i].date).slice(0,5)}</text>`;
+  }
+  if(proj.length){
+    s += `<text x="${P.l+6}" y="${P.t+8}" style="fill:var(--muted)" font-size="10.5">— actual · <tspan fill="#eab308">┈ proyección</tspan></text>`;
   }
   s += `<text x="${x(n-1)-10}" y="${y(valores[n-1])-10}" text-anchor="end" style="fill:var(--txt)" font-size="12" font-weight="700">${fmt$(valores[n-1])}</text>`;
   s += `<line id="chartGuide" x1="0" y1="${P.t}" x2="0" y2="${H-P.b}" style="stroke:var(--blue)" stroke-width="1" stroke-dasharray="3 3" opacity="0.6" visibility="hidden"/>`;
@@ -1018,13 +1276,14 @@ function drawChart(puntos, contribs, filas){
     const r = svg.getBoundingClientRect();
     let i = Math.round((e.clientX - r.left - P.l) / (W - P.l - P.r) * (n-1));
     i = Math.max(0, Math.min(n-1, i));
-    const p = puntos[i];
+    const p = all[i];
     const guide = svg.querySelector("#chartGuide"), dot = svg.querySelector("#chartDot");
     if(guide){ guide.setAttribute("x1", x(i)); guide.setAttribute("x2", x(i)); guide.setAttribute("visibility","visible"); }
     if(dot){ dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(p.balance)); dot.setAttribute("visibility","visible"); }
     let html = `<b>${fmtFecha(p.date)}</b><br>${fmt$(p.balance)}`;
     const it = byIso[p.date];
     if(it) html += `<br><span style="color:var(--green)">+${fmt$(it.interes)} de interés${it.nDias > 1 ? " (" + it.nDias + "d juntos)" : ""}</span>`;
+    if(i >= nHist) html += `<br><span style="color:var(--muted)">proyección</span>`;
     tip.innerHTML = html;
     tip.style.left = Math.max(70, Math.min(W-70, x(i))) + "px";
     tip.style.top = Math.max(40, y(p.balance) - 12) + "px";
@@ -1078,10 +1337,27 @@ function aportesMonto(ap){
   const m = +ap.monto || 0;
   return m > 0 ? m : 0;
 }
-// Suma de los aportes registrados: la base de interés en modo "sin reinvertir"
-// (idéntico a tl.depositado, calculado sin depender del timeline — así los
-// puntos de entrada que no tienen timeline (botones, inputs) usan la misma base).
-function depositadoContribs(){ return state.contributions.reduce((s,c)=> s + (+c.amount || 0), 0); }
+// Base de interés en modo "sin reinvertir" a día de hoy: aportes menos retiros,
+// con la misma secuencia por día que buildTimeline (neta por día, piso 0) — para
+// los puntos de entrada que no reconstruyen el timeline entero (botones, inputs).
+// Sin retiros, coincide con la suma de los aportes (tl.depositado).
+function baseDeInteresHoy(){
+  const contribs = state.contributions;
+  if(!contribs.length) return 0;
+  const hasta = hoyISO();
+  const byC = aportesPorDia(contribs, hasta);
+  const byR = retirosPorDia(state.retiros, hasta);
+  const fechas = Object.keys(byC).sort();
+  if(!fechas.length) return 0;
+  const first = fechas[0];
+  const totalDias = Math.round((new Date(hasta+"T12:00:00") - new Date(first+"T12:00:00")) / 86400000);
+  let base = 0;
+  for(let i = 0; i <= totalDias; i++){
+    const iso = addDiasISO(first, i);
+    base = Math.max(0, base + (byC[iso] || 0) - (byR[iso] || 0));
+  }
+  return base;
+}
 // ¿Cuántos días no hábiles quedaron "abiertos" al día de hoy? Si hoy no es hábil
 // (sáb/dom/feriado) MP aún no abona: esos días se capitalizan y se pagan juntos en
 // el próximo día hábil — la proyección debe arrancar desde ahí, igual que el historial.
@@ -1091,36 +1367,49 @@ function streakPendienteHoy(){
   return pend;
 }
 // Días para alcanzar la meta replicando EXACTAMENTE las reglas del historial
-// (rachas de días no hábiles, abono con factor (1+d)^nD, y el momento en que
+// (rachas de días no hábiles, producto de tasas diarias, y el momento en que
 // rinde cada aporte). base0: base sobre la que rinde el interés (con reinversión
-// = el propio saldo; sin reinversión = solo los aportes reales, como en el historial).
+// = el propio saldo; sin reinversión = solo los aportes netos, como en el historial).
+// Si hay IPC activo (state.inflacionMensual > 0) la meta crece con la inflación:
+// se estima el día en que se alcanza el poder de compra equivalente.
 // Tope del horizonte de estimación (60 años): evita bucles eternos si la meta es inalcanzable.
 const CAP_DIAS_META = 365 * 60;
 function diasParaMetaConAportes(current, meta, aportes, base0){
-  const daily = dailyRate(state.tasa, state.tasaType);
+  const infl = (typeof state.inflacionMensual === "number" && isFinite(state.inflacionMensual) && state.inflacionMensual > 0) ? state.inflacionMensual : 0;
+  const metaAjustada = dias => infl > 0 ? meta * Math.pow(1 + infl / 100, dias / 30.44) : meta;
+  const dailyNow = dailyRate(tasaParaFecha(hoyISO()), state.tasaType);
   const mensual = aportesMonto(aportes);
-  if(daily <= 0 && mensual <= 0) return null;
+  if(!(dailyNow > 0) && mensual <= 0) return null;
   let base = (base0 != null ? base0 : current);
   let bal = current;
   let pend = streakPendienteHoy();
+  let streakProd = 1;
+  const dailyFor = iso => dailyRate(tasaParaFecha(iso), state.tasaType);
+  for(let k = 0; k < pend; k++){
+    streakProd *= (1 + dailyFor(addDiasISO(hoyISO(), -k)));
+  }
   let dias = 0;
-  while(bal < meta && dias < CAP_DIAS_META){
+  while(bal < metaAjustada(dias) && dias < CAP_DIAS_META){
     dias++;
     const iso = addDiasISO(hoyISO(), dias);
     const ap = esFechaAporte(iso, aportes) ? mensual : 0;
     if(!esDiaHabil(iso)){
+      streakProd *= (1 + dailyFor(iso));
       base += ap; bal += ap; pend++;
       continue;
     }
+    streakProd *= (1 + dailyFor(iso));
     const nD = pend + 1;
-    const ini = (daily > 0 && base > 0) ? base * (Math.pow(1 + daily, nD) - 1) : 0;
+    const ini = (base > 0 && streakProd > 1) ? base * (streakProd - 1) : 0;
     bal += ini;
+    bal += ap; // el aporte del día entra en el saldo (mismo día que en el historial)
     if(state.compound) base += ini;
     base += ap;
     pend = 0;
+    streakProd = 1;
   }
-  if(bal < meta) return null;
-  return { dias, fecha: addDiasISO(hoyISO(), dias) };
+  if(bal < metaAjustada(dias)) return null;
+  return { dias, fecha: addDiasISO(hoyISO(), dias), metaAjustada: metaAjustada(dias) };
 }
 
 function renderGoal(current, tl){
@@ -1141,14 +1430,14 @@ function renderGoal(current, tl){
   let html = `Llevás el <b>${Math.round(pct)}%</b> de tu meta${nombre} (${fmt$(state.meta)}): te faltan <b>${fmt$(state.meta - current)}</b>.<div style="margin:10px 0">${bar}</div>`;
   const daily = dailyRate(state.tasa, state.tasaType);
   const sinAportes = { monto: 0, mode: "dia", dia: 1, hab: 1 };
-  const base0 = state.compound ? current : (tl ? tl.depositado : depositadoContribs());
-  let baseDias = null;
+  const base0 = state.compound ? current : (tl ? tl.baseFinal : baseDeInteresHoy());
+  let baseDias = null, rSin = null;
   if(daily <= 0){
     html += `Con tasa 0%, sin aportar más no llegarías a la meta.<br>`;
   } else {
     // Mismo motor que el historial: con reinversión coincide con la fórmula cerrada;
     // sin reinversión el interés crece casi linealmente (solo rinden los aportes).
-    const rSin = diasParaMetaConAportes(current, state.meta, sinAportes, base0);
+    rSin = diasParaMetaConAportes(current, state.meta, sinAportes, base0);
     if(rSin){
       baseDias = rSin.dias;
       const p = textoPeriodo(baseDias);
@@ -1160,11 +1449,12 @@ function renderGoal(current, tl){
   const aportes = state.aporteExtra;
   const mensual = aportesMonto(aportes);
   const labelDia = labelAporteMes(aportes);
+  let rCon = null;
   if(mensual > 0){
-    const r = diasParaMetaConAportes(current, state.meta, aportes, base0);
-    if(r){
-      html += `Metiendo <b>${fmt$(mensual)}</b> ${labelDia}, llegás en <b>${r.dias} días</b> → hacia el <b>${fmtFecha(r.fecha)}</b>`;
-      if(baseDias && baseDias > r.dias) html += ` <span class="hint">(${baseDias - r.dias} días antes que sin estos aportes 🚀)</span>`;
+    rCon = diasParaMetaConAportes(current, state.meta, aportes, base0);
+    if(rCon){
+      html += `Metiendo <b>${fmt$(mensual)}</b> ${labelDia}, llegás en <b>${rCon.dias} días</b> → hacia el <b>${fmtFecha(rCon.fecha)}</b>`;
+      if(baseDias && baseDias > rCon.dias) html += ` <span class="hint">(${baseDias - rCon.dias} días antes que sin estos aportes 🚀)</span>`;
       html += ".<br>";
     } else {
       html += `Con <b>${fmt$(mensual)}/mes</b> no alcanza para la meta en el horizonte que miro: probá un aporte mayor.<br>`;
@@ -1172,11 +1462,20 @@ function renderGoal(current, tl){
   } else {
     html += `<span class="hint">Probá poner un aporte mensual extra para ver cómo llegar antes 🚀</span>`;
   }
+  // Inflación: la meta crece con el IPC; muestro a cuánto equivale al llegar,
+  // y cuánto vale eso "hoy" en poder de compra.
+  const infl = +state.inflacionMensual || 0;
+  const arr = rCon || rSin;
+  if(infl > 0 && arr && arr.dias){
+    const factor = Math.pow(1 + infl / 100, arr.dias / 30.44);
+    const ajuste = arr.metaAjustada || state.meta * factor;
+    html += `<div class="hint" style="margin-top:8px">📈 Con IPC de ${infl}% mensual la meta crece: al llegar (${fmtFecha(arr.fecha)}) serían <b>${fmt$(ajuste)}</b>, que hoy equivalen a <b>${fmt$(state.meta / factor)}</b> de poder de compra.</div>`;
+  }
   box.innerHTML = html;
 }
 
 /* ================= Retiro simulado ================= */
-function renderWithdrawal(){
+function renderWithdrawal(tl){
   const box = $("wtResult");
   box.classList.remove("reached");
   if(!state.contributions.length){ box.textContent = "Registra un aporte primero 😊"; return; }
@@ -1191,11 +1490,14 @@ function renderWithdrawal(){
   const restante = full - amt;
   let html = `Hoy tenés <b>${fmt$(hoy)}</b>. El <b>${fmtFecha(fecha)}</b> el fondo tendría <b>${fmt$(full)}</b>; al retirar <b>${fmt$(amt)}</b> te quedarían <b>${fmt$(restante)}</b>.<br>`;
   if(state.meta > 0 && hoy < state.meta && restante < state.meta){
-    const daily = dailyRate(state.tasa, state.tasaType);
-    if(daily > 0){
-      const antes = Math.ceil(Math.log(state.meta / hoy) / Math.log(1 + daily));
-      const despues = Math.ceil(Math.log(state.meta / restante) / Math.log(1 + daily));
-      html += `Tu meta (${fmt$(state.meta)}) pasa de ~<b>${antes} días</b> a ~<b>${despues} días</b>.<br>`;
+    // Con el mismo motor del historial (tasa por época, rachas, base neta de retiros).
+    const sinAportes = { monto: 0, mode: "dia", dia: 1, hab: 1 };
+    const base0  = state.compound ? hoy : (tl ? tl.baseFinal : baseDeInteresHoy());
+    const base0r = state.compound ? restante : Math.max(0, (tl ? tl.baseFinal : baseDeInteresHoy()) - amt);
+    const antes = diasParaMetaConAportes(hoy, state.meta, sinAportes, base0);
+    const despues = diasParaMetaConAportes(restante, state.meta, sinAportes, base0r);
+    if(antes || despues){
+      html += `Tu meta (${fmt$(state.meta)}) pasa de ~<b>${antes ? antes.dias + " días" : "no alcanzable"}</b> a ~<b>${despues ? despues.dias + " días" : "no alcanzable"}</b>.<br>`;
     }
   }
   html += restante < hoy
@@ -1207,22 +1509,30 @@ function renderWithdrawal(){
 /* ================= Proyección ================= */
 // Replica EXACTAMENTE las reglas del historial (buildTimeline):
 //  - sábados, domingos y feriados no abonan: se acumulan y el próximo día hábil
-//    se abona la racha completa con factor (1+d)^nD;
+//    se abona la racha completa con el producto de las tasas diarias de cada día;
 //  - un aporte hecho en día NO hábil entra al saldo base y cobra la racha completa
 //    (igual que en el historial);
 //  - un aporte en día hábil empieza a rendir al día siguiente;
-//  - si hoy no es día hábil, la primera racha incluye los días ya acumulados.
+//  - si hoy no es día hábil, la primera racha incluye los días ya acumulados;
+//  - la tasa diaria sigue el historial de cambios de tasa (hacia el futuro,
+//    normalmente la tasa vigente hoy).
 // Con aporte extra = 0, la proyección coincide céntimo a céntimo con extender
 // el propio historial. base0: base sobre la que rinde el interés (con reinversión
-// = el saldo actual; sin reinversión = solo los aportes reales).
+// = el saldo actual; sin reinversión = solo los aportes netos).
+// Devuelve además la serie `puntos` ({date, balance} por día) para trazar la curva.
 function proyectarFuturo(current, n, aportes, base0){
-  const daily = dailyRate(state.tasa, state.tasaType);
   const mensual = aportesMonto(aportes);
   let base = (base0 != null ? base0 : current);
   let bal = current;
   let pend = streakPendienteHoy();
+  let streakProd = 1;
+  const dailyFor = iso => dailyRate(tasaParaFecha(iso), state.tasaType);
+  for(let k = 0; k < pend; k++){
+    streakProd *= (1 + dailyFor(addDiasISO(hoyISO(), -k)));
+  }
   let aporteTotal = 0, nAportes = 0;
   const fechasAporte = [];
+  const puntos = [];
   for(let i = 1; i <= n; i++){
     const iso = addDiasISO(hoyISO(), i);
     const ap = esFechaAporte(iso, aportes) ? mensual : 0;
@@ -1232,20 +1542,26 @@ function proyectarFuturo(current, n, aportes, base0){
       fechasAporte.push(iso);
     }
     if(!esDiaHabil(iso)){
+      streakProd *= (1 + dailyFor(iso));
       base += ap;
       bal += ap;
       pend++;
+      puntos.push({ date: iso, balance: bal });
       continue;
     }
+    streakProd *= (1 + dailyFor(iso));
     const nD = pend + 1;
-    const ini = (daily > 0 && base > 0) ? base * (Math.pow(1 + daily, nD) - 1) : 0;
+    const ini = (base > 0 && streakProd > 1) ? base * (streakProd - 1) : 0;
     bal += ini;
+    bal += ap; // el aporte del día entra en el saldo (mismo día que en el historial)
     if(state.compound) base += ini;
     base += ap;
     pend = 0;
+    streakProd = 1;
+    puntos.push({ date: iso, balance: bal });
   }
   const ultimos = fechasAporte.slice(-5).slice().reverse();
-  return { balance: bal, aporteTotal, nAportes, ultimosFechas: ultimos };
+  return { balance: bal, aporteTotal, nAportes, ultimosFechas: ultimos, puntos };
 }
 function labelAporteMes(a){
   if(!a || !(+a.monto > 0)) return "cada mes";
@@ -1258,7 +1574,7 @@ function renderProjection(current, tl){
   const n = Math.max(1, parseInt($("projDays").value || "0", 10));
   const aportes = state.aporteExtra;
   const mensual = aportesMonto(aportes);
-  const base0 = state.compound ? current : (tl ? tl.depositado : depositadoContribs());
+  const base0 = state.compound ? current : (tl ? tl.baseFinal : baseDeInteresHoy());
   const sinAportes = { monto: 0, mode: "dia", dia: 1, hab: 1 };
   if(mensual > 0){
     const r = proyectarFuturo(current, n, aportes, base0);
@@ -1276,18 +1592,68 @@ function renderProjection(current, tl){
 function calcBalanceHoy(){
   return simulate(state.contributions, state.tasa, hoyISO()).balance;
 }
+// Snapshot en memoria para el "Deshacer" de acciones destructivas (aportes, retiros, borrar todo).
+let lastSnapshot = null;
+function undoSnapshot(){
+  if(!lastSnapshot) return;
+  state.contributions = lastSnapshot.contributions.slice();
+  state.retiros = lastSnapshot.retiros.slice();
+  lastSnapshot = null;
+  save(); renderAll();
+}
+function takeSnapshot(){
+  lastSnapshot = { contributions: state.contributions.slice(), retiros: state.retiros.slice() };
+}
 function addContrib(){
   const date = $("apDate").value || hoyISO();
   const amount = parseFloat($("apAmount").value);
   const note = $("apNote").value.trim();
   if(!(amount > 0)){ toast("Ingresá un monto válido 💸","err"); return; }
   if(date > hoyISO()){ toast("La fecha no puede ser futura: usá hoy o una fecha anterior 📅","warn"); return; }
+  takeSnapshot();
   state.contributions.push({ id:newId(), date, amount, note });
   save(); renderAll();
-  toast("Aporte de " + fmt$(amount) + " sumado ✅","ok");
+  toast("Aporte de " + fmt$(amount) + " sumado ✅","ok","Deshacer",undoSnapshot);
   $("apAmount").value = ""; $("apNote").value = "";
   const tot = $("stTotal").parentElement;
   tot.animate([{ background:"#1f7a4c55" }, { background:"transparent" }], { duration: 800 });
+}
+function addRetiro(){
+  const date = $("rtDate").value;
+  const amount = parseFloat($("rtAmount").value);
+  const note = $("rtNote").value.trim();
+  if(!date){ toast("Elegí la fecha del retiro 📅","warn"); return; }
+  if(!(amount > 0)){ toast("Ingresá un monto válido 💸","err"); return; }
+  if(date > hoyISO()){ toast("La fecha no puede ser futura 📅","warn"); return; }
+  const balEsaFecha = simulate(state.contributions, state.tasa, date).balance;
+  if(amount > balEsaFecha){
+    toast(`Ojo: el ${fmtFecha(date)} el fondo tendría ${fmt$(balEsaFecha)}; retirar ${fmt$(amount)} lo deja en cero. Se registra igual, pero verificá el monto ⚠️`,"warn");
+  }
+  takeSnapshot();
+  state.retiros.push({ id:newId(), date, amount, note });
+  save(); renderAll();
+  toast("Retiro de " + fmt$(amount) + " registrado: el balance tracked ya lo refleja 💸","ok","Deshacer",undoSnapshot);
+  $("rtAmount").value = ""; $("rtNote").value = "";
+}
+function repeatLastContribution(){
+  if(!state.contributions.length){ toast("No hay aportes que repetir","warn"); return; }
+  const last = [...state.contributions].sort((a,b)=> a.date.localeCompare(b.date)).pop();
+  takeSnapshot();
+  state.contributions.push({ id:newId(), date: hoyISO(), amount: last.amount, note: last.note || "" });
+  save(); renderAll();
+  toast("Último aporte repetido hoy: " + fmt$(last.amount) + " ✅","ok","Deshacer",undoSnapshot);
+}
+function addTasaHist(){
+  const desde = $("thDate").value;
+  const tasa = parseFloat($("thTasa").value);
+  if(!desde){ toast("Elegí la fecha desde la que rige la tasa 📅","warn"); return; }
+  if(!(isFinite(tasa) && tasa >= 0 && tasa <= 500)){ toast("Ingresá una tasa válida (0 a 500) %","err"); return; }
+  state.tasaHist = state.tasaHist.filter(h => h.desde !== desde);
+  state.tasaHist.push({ desde, tasa });
+  state.tasaHist.sort((a,b)=> a.desde.localeCompare(b.desde));
+  save(); renderAll();
+  $("thTasa").value = "";
+  toast(`Tasa ${tasa} % ${state.tasaType} cargada como vigente desde ${fmtFecha(desde)} ✅`,"ok");
 }
 async function guardarArchivo(filename, data){
   const a = document.createElement("a");
@@ -1295,7 +1661,7 @@ async function guardarArchivo(filename, data){
   a.download = filename; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
 }
-function exportBackup(){ guardarArchivo("ahorrometro-respaldo.json", JSON.stringify(state, null, 2)); }
+function exportBackup(){ guardarArchivo("ahorrometro-respaldo-" + hoyISO() + ".json", JSON.stringify(state, null, 2)); }
 function importBackup(file){
   const r = new FileReader();
   r.onload = async ()=>{
@@ -1314,6 +1680,11 @@ function exportCSV(){
   const contribs = [...state.contributions].sort((a,b)=>a.date.localeCompare(b.date));
   let csv = "\uFEFFfecha;nota;aporte\n";
   for(const c of contribs) csv += [c.date, String(c.note||"").replace(/[;\r\n]/g," "), c.amount].join(";") + "\n";
+  if(state.retiros.length){
+    const rets = [...state.retiros].sort((a,b)=>a.date.localeCompare(b.date));
+    csv += "\nfecha;nota;retiro\n";
+    for(const r of rets) csv += [r.date, String(r.note||"").replace(/[;\r\n]/g," "), r.amount].join(";") + "\n";
+  }
   guardarArchivo("ahorrometro.csv", csv);
 }
 
@@ -1325,12 +1696,61 @@ document.addEventListener("click", async e=>{
     const c = state.contributions.find(x => x.id === id);
     const ok = await askModal({ title:"Eliminar aporte", msg:"¿Eliminar el aporte de " + (c ? fmt$(c.amount) + " del " + fmtFecha(c.date) : "ese día") + "?", danger:true, okLabel:"Eliminar" });
     if(ok){
+      takeSnapshot();
       state.contributions = state.contributions.filter(x => x.id !== id);
       save(); renderAll();
-      toast("Aporte eliminado","warn");
+      toast("Aporte eliminado","warn","Deshacer",undoSnapshot);
     }
     return;
   }
+  const delRet = t.closest(".del[data-retid]");
+  if(delRet){
+    const id = delRet.dataset.retid;
+    const r = state.retiros.find(x => x.id === id);
+    const ok = await askModal({ title:"Eliminar retiro", msg:"¿Eliminar el retiro de " + (r ? fmt$(r.amount) + " del " + fmtFecha(r.date) : "ese día") + "?", danger:true, okLabel:"Eliminar" });
+    if(ok){
+      takeSnapshot();
+      state.retiros = state.retiros.filter(x => x.id !== id);
+      save(); renderAll();
+      toast("Retiro eliminado","warn","Deshacer",undoSnapshot);
+    }
+    return;
+  }
+  const mesSum = t.closest("tr.mes-sum");
+  if(mesSum && state.viewMode === "mes"){
+    const mm = mesSum.getAttribute("data-mm");
+    const abrir = mesSum.getAttribute("data-abierto") !== "1";
+    document.querySelectorAll('tr.mes-sum[data-mm="' + mm + '"]').forEach(el => el.setAttribute("data-abierto", abrir ? "1" : "0"));
+    document.querySelectorAll('tr.mes-det[data-mm="' + mm + '"]').forEach(el => el.style.display = abrir ? "" : "none");
+    return;
+  }
+  const thDel = t.closest("[data-thdel]");
+  if(thDel){
+    state.tasaHist = state.tasaHist.filter(h => h.desde !== thDel.getAttribute("data-thdel"));
+    save(); renderAll();
+    toast("Cambio de tasa retirado","warn");
+    return;
+  }
+  if(t === $("btnViewMode")){
+    state.viewMode = state.viewMode === "mes" ? "dias" : "mes";
+    save(); renderAll();
+    return;
+  }
+  if(t === $("btnNudgeBackup")){
+    exportBackup();
+    state.lastBackup = hoyISO(); save();
+    $("backupNudge").hidden = true;
+    toast("Respaldo descargado ✅ Guardalo donde no dependa de este navegador (Drive, mail, USB)","ok");
+    return;
+  }
+  if(t === $("btnNudgeLater")){
+    state.lastNudge = hoyISO(); save();
+    $("backupNudge").hidden = true;
+    return;
+  }
+  if(t === $("btnRetiro")){ addRetiro(); return; }
+  if(t === $("btnRepAporte")){ repeatLastContribution(); return; }
+  if(t === $("btnTasaHist")){ addTasaHist(); return; }
   const pd = t.closest("[data-pd]");
   if(pd){ $("projDays").value = pd.dataset.pd; renderProjection(calcBalanceHoy()); return; }
   if(t === $("btnAdd")) addContrib();
@@ -1338,12 +1758,13 @@ document.addEventListener("click", async e=>{
   if(t === $("pillTNA")){ state.tasaType = "TNA"; save(); renderAll(); }
   if(t === $("pillTAE")){ state.tasaType = "TAE"; save(); renderAll(); }
   if(t === $("btnClear")){
-    if(!state.contributions.length) return;
-    const ok = await askModal({ title:"⚠️ Borrar todo", msg:"Se borran TODOS los aportes y la calibración de días. Esta acción no se puede deshacer.", danger:true, okLabel:"Borrar todo" });
+    if(!state.contributions.length && !state.retiros.length) return;
+    const ok = await askModal({ title:"⚠️ Borrar todo", msg:"Se borran TODOS los aportes, retiros y la calibración de días. Podés deshacerlo desde el aviso que aparece.", danger:true, okLabel:"Borrar todo" });
     if(ok){
-      state.contributions = []; state.diaAjuste = {};
+      takeSnapshot();
+      state.contributions = []; state.diaAjuste = {}; state.retiros = [];
       save(); renderAll();
-      toast("Historial borrado","warn");
+      toast("Historial borrado","warn","Deshacer",undoSnapshot);
     }
     return;
   }
@@ -1456,10 +1877,38 @@ document.addEventListener("click", e=>{
     $("metaName").value = g.dataset.gname;
     save(); renderAll();
   }
-  if(e.target === $("btnWt")) renderWithdrawal();
+  if(e.target === $("btnWt")) renderWithdrawal(buildTimeline(state.contributions, state.tasa, hoyISO()));
 });
-$("wtDate").addEventListener("input", renderWithdrawal);
-$("wtAmount").addEventListener("input", renderWithdrawal);
+$("wtDate").addEventListener("input", ()=> renderWithdrawal(buildTimeline(state.contributions, state.tasa, hoyISO())));
+$("wtAmount").addEventListener("input", ()=> renderWithdrawal(buildTimeline(state.contributions, state.tasa, hoyISO())));
+$("ipcInput").addEventListener("input", ()=>{
+  const v = parseFloat($("ipcInput").value);
+  state.inflacionMensual = (isFinite(v) && v >= 0 && v <= 100) ? v : 0;
+  save(); renderAll();
+});
+$("ipcInput").addEventListener("blur", e=>{
+  if(!e.target.value.trim()){ state.inflacionMensual = 0; save(); renderAll(); }
+});
+$("rtAmount").addEventListener("keydown", e=>{ if(e.key === "Enter") addRetiro(); });
+$("thTasa").addEventListener("keydown", e=>{ if(e.key === "Enter") addTasaHist(); });
+
+/* Atajos de teclado: "a" enfoca el monto del aporte, "r" el del retiro,
+   Esc cierra modales (ya gestionado por askModal). No interfieren con la escritura. */
+document.addEventListener("keydown", e=>{
+  if(e.ctrlKey || e.metaKey || e.altKey) return;
+  const inInput = /^(input|textarea|select)$/i.test(e.target.tagName);
+  if(inInput) return;
+  const k = e.key.toLowerCase();
+  if(k === "a"){ e.preventDefault(); $("apAmount").focus(); }
+  else if(k === "r"){ e.preventDefault(); $("rtAmount").focus(); }
+});
+
+/* PWA: service worker para que funcione 100% offline (el HTML se cachea). */
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
 
 $("btnBackup").addEventListener("click", exportBackup);
 $("btnRestore").addEventListener("click", ()=> $("fileRestore").click());
@@ -1475,6 +1924,9 @@ $("tasaInput").value = state.tasa;
 if(state.meta > 0) $("metaInput").value = state.meta;
 if(state.metaName) $("metaName").value = state.metaName;
 if(state.aporteExtra.monto > 0) $("apExtraMonto").value = state.aporteExtra.monto;
+if(state.inflacionMensual > 0) $("ipcInput").value = state.inflacionMensual;
+$("rtDate").value = hoyISO();
+$("rtDate").max = hoyISO();
 $("apExtraMode").value = state.aporteExtra.mode;
 if(state.aporteExtra.dia) $("apExtraDia").value = state.aporteExtra.dia;
 if(state.aporteExtra.hab) $("apExtraHab").value = state.aporteExtra.hab;
