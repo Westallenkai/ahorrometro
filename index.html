@@ -475,7 +475,9 @@ if(typeof d.metaName === "string") state.metaName = d.metaName;
       } else if(typeof d.metaMensual === "number" && d.metaMensual > 0){
         state.aporteExtra.monto = d.metaMensual; // legado, sigue en modo "dia"=1
       }
-      if(Array.isArray(d.feriados)) state.feriados = d.feriados.filter(x => typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x));
+      // El respaldo es la fuente de verdad: si la clave no existe (respaldo de una versión
+      // anterior a los feriados) la lista se deja vacía, no se heredan los precargados.
+      state.feriados = Array.isArray(d.feriados) ? d.feriados.filter(x => typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x)) : [];
       // diaAjuste: mapa ISO (lunes) -> $ real abonado por Mercado Pago
       if(d.diaAjuste && typeof d.diaAjuste === "object"){
         const clean = {};
@@ -1076,6 +1078,10 @@ function aportesMonto(ap){
   const m = +ap.monto || 0;
   return m > 0 ? m : 0;
 }
+// Suma de los aportes registrados: la base de interés en modo "sin reinvertir"
+// (idéntico a tl.depositado, calculado sin depender del timeline — así los
+// puntos de entrada que no tienen timeline (botones, inputs) usan la misma base).
+function depositadoContribs(){ return state.contributions.reduce((s,c)=> s + (+c.amount || 0), 0); }
 // ¿Cuántos días no hábiles quedaron "abiertos" al día de hoy? Si hoy no es hábil
 // (sáb/dom/feriado) MP aún no abona: esos días se capitalizan y se pagan juntos en
 // el próximo día hábil — la proyección debe arrancar desde ahí, igual que el historial.
@@ -1088,6 +1094,8 @@ function streakPendienteHoy(){
 // (rachas de días no hábiles, abono con factor (1+d)^nD, y el momento en que
 // rinde cada aporte). base0: base sobre la que rinde el interés (con reinversión
 // = el propio saldo; sin reinversión = solo los aportes reales, como en el historial).
+// Tope del horizonte de estimación (60 años): evita bucles eternos si la meta es inalcanzable.
+const CAP_DIAS_META = 365 * 60;
 function diasParaMetaConAportes(current, meta, aportes, base0){
   const daily = dailyRate(state.tasa, state.tasaType);
   const mensual = aportesMonto(aportes);
@@ -1096,8 +1104,7 @@ function diasParaMetaConAportes(current, meta, aportes, base0){
   let bal = current;
   let pend = streakPendienteHoy();
   let dias = 0;
-  const CAP = 365 * 60;
-  while(bal < meta && dias < CAP){
+  while(bal < meta && dias < CAP_DIAS_META){
     dias++;
     const iso = addDiasISO(hoyISO(), dias);
     const ap = esFechaAporte(iso, aportes) ? mensual : 0;
@@ -1133,19 +1140,27 @@ function renderGoal(current, tl){
   confettiShown = false;
   let html = `Llevás el <b>${Math.round(pct)}%</b> de tu meta${nombre} (${fmt$(state.meta)}): te faltan <b>${fmt$(state.meta - current)}</b>.<div style="margin:10px 0">${bar}</div>`;
   const daily = dailyRate(state.tasa, state.tasaType);
+  const sinAportes = { monto: 0, mode: "dia", dia: 1, hab: 1 };
+  const base0 = state.compound ? current : (tl ? tl.depositado : depositadoContribs());
   let baseDias = null;
-  if(daily > 0){
-    baseDias = Math.ceil(Math.log(state.meta / current) / Math.log(1 + daily));
-    const p = textoPeriodo(baseDias);
-    html += `Sin aportar más y a la tasa actual (${state.tasa}% ${state.tasaType}), la alcanzas en unos <b>${baseDias} días</b>${p ? " (≈ " + p + ")" : ""} → hacia el <b>${fmtFecha(addDiasISO(hoyISO(), baseDias))}</b>.<br>`;
-  } else {
+  if(daily <= 0){
     html += `Con tasa 0%, sin aportar más no llegarías a la meta.<br>`;
+  } else {
+    // Mismo motor que el historial: con reinversión coincide con la fórmula cerrada;
+    // sin reinversión el interés crece casi linealmente (solo rinden los aportes).
+    const rSin = diasParaMetaConAportes(current, state.meta, sinAportes, base0);
+    if(rSin){
+      baseDias = rSin.dias;
+      const p = textoPeriodo(baseDias);
+      html += `Sin aportar más y a la tasa actual (${state.tasa}% ${state.tasaType}), la alcanzas en unos <b>${baseDias} días</b>${p ? " (≈ " + p + ")" : ""} → hacia el <b>${fmtFecha(rSin.fecha)}</b>.<br>`;
+    } else {
+      html += `Sin aportar más, no llegarías a la meta en el horizonte que miro (≈ ${Math.round(CAP_DIAS_META / 365)} años).<br>`;
+    }
   }
   const aportes = state.aporteExtra;
   const mensual = aportesMonto(aportes);
   const labelDia = labelAporteMes(aportes);
   if(mensual > 0){
-    const base0 = state.compound ? current : (tl ? tl.depositado : current);
     const r = diasParaMetaConAportes(current, state.meta, aportes, base0);
     if(r){
       html += `Metiendo <b>${fmt$(mensual)}</b> ${labelDia}, llegás en <b>${r.dias} días</b> → hacia el <b>${fmtFecha(r.fecha)}</b>`;
@@ -1243,7 +1258,7 @@ function renderProjection(current, tl){
   const n = Math.max(1, parseInt($("projDays").value || "0", 10));
   const aportes = state.aporteExtra;
   const mensual = aportesMonto(aportes);
-  const base0 = state.compound ? current : (tl ? tl.depositado : current);
+  const base0 = state.compound ? current : (tl ? tl.depositado : depositadoContribs());
   const sinAportes = { monto: 0, mode: "dia", dia: 1, hab: 1 };
   if(mensual > 0){
     const r = proyectarFuturo(current, n, aportes, base0);
@@ -1275,10 +1290,6 @@ function addContrib(){
   tot.animate([{ background:"#1f7a4c55" }, { background:"transparent" }], { duration: 800 });
 }
 async function guardarArchivo(filename, data){
-  try{
-    const dl = (window.claude && claude.use) ? await claude.use("downloads") : null;
-    if(dl){ await dl.save({ filename, data }); return; }
-  }catch(e){ if(e && e.code === "declined") return; console.warn(e); }
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([data], { type:"text/plain;charset=utf-8" }));
   a.download = filename; a.click();
@@ -1302,7 +1313,7 @@ function importBackup(file){
 function exportCSV(){
   const contribs = [...state.contributions].sort((a,b)=>a.date.localeCompare(b.date));
   let csv = "\uFEFFfecha;nota;aporte\n";
-  for(const c of contribs) csv += [c.date, String(c.note||"").replace(/;/g,","), c.amount].join(";") + "\n";
+  for(const c of contribs) csv += [c.date, String(c.note||"").replace(/[;\r\n]/g," "), c.amount].join(";") + "\n";
   guardarArchivo("ahorrometro.csv", csv);
 }
 
@@ -1473,8 +1484,9 @@ $("wtDate").min = hoyISO();
 $("apDate").value = hoyISO();
 $("apDate").max = hoyISO();
 renderAll();
-
-
+// Repinta tras el primer paint: asegura que el chart mida el ancho ya asentado
+// (evita el flash de ancho incorrecto en el render inicial).
+requestAnimationFrame(()=>renderAll());
 </script>
 </body>
 </html>
