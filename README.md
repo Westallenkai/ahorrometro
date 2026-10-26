@@ -76,8 +76,11 @@ node _test_ahorrometro.js
 
 ```
 ahorrometro.html        ← todo el app: UI, motor, estilos (un solo archivo)
+index.html              ← copia idéntica para GitHub Pages (publicación del sitio)
 manifest.webmanifest    ← manifiesto PWA
 sw.js                   ← Service Worker (network-first, cache offline)
 icon.svg                ← ícono de la PWA
 _test_ahorrometro.js    ← suite de tests (Node, sin dependencias)
 ```
+
+> 📌 `ahorrometro.html` es el archivo que se edita; antes de publicar, `index.html` se sincroniza con él para que el sitio (Pages) muestre la versión actual.
