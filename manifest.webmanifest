@@ -1,0 +1,14 @@
+{
+  "name": "Ahorrómetro — tracking de tu fondo Mercado Pago",
+  "short_name": "Ahorrómetro",
+  "description": "Trackeá tu fondo de inversión en Mercado Pago: aportes, retiros, interés diario, metas y proyección. Todo offline, en tu navegador.",
+  "start_url": "./ahorrometro.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e1117",
+  "theme_color": "#0e1117",
+  "lang": "es-AR",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
