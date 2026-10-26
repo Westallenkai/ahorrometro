@@ -863,7 +863,9 @@ function renderAll(){
     let txt = "📅 " + fmtFecha(hoy);
     if(tl.filas.length){
       const fHoy = tl.filas.filter(f => f.tipo === "interes" && f.iso === hoy).pop();
-      if(fHoy) txt += fHoy.nDias > 1 ? " · hoy: +" + fmt$(fHoy.interes) + " (" + fHoy.nDias + "d juntos)" : " · hoy: +" + fmt$(fHoy.interes);
+      // Solo el estado del día, sin el monto: el valor exacto ya aparece en la última
+      // fila del historial, y repetirlo acá sería informarlo dos veces.
+      if(fHoy) txt += fHoy.nDias > 1 ? " · hoy: pagó " + fHoy.nDias + " días juntos ✅" : " · hoy: pagó su interés ✅";
       else if(dow === 0 || dow === 6) txt += " · hoy no abona (fin de semana)";
       else if(esFeriado(hoy)) txt += " · hoy no abona (feriado)";
     }
@@ -909,8 +911,8 @@ function renderAll(){
   renderTasaReal(tl);
   renderFeriados();
   drawChart(puntos, contribs, tl.filas);
-  renderGoal(balance);
-  renderProjection(balance);
+  renderGoal(balance, tl);
+  renderProjection(balance, tl);
 renderWithdrawal();
 }
 
@@ -1074,23 +1076,47 @@ function aportesMonto(ap){
   const m = +ap.monto || 0;
   return m > 0 ? m : 0;
 }
-function diasParaMetaConAportes(current, meta, aportes){
+// ¿Cuántos días no hábiles quedaron "abiertos" al día de hoy? Si hoy no es hábil
+// (sáb/dom/feriado) MP aún no abona: esos días se capitalizan y se pagan juntos en
+// el próximo día hábil — la proyección debe arrancar desde ahí, igual que el historial.
+function streakPendienteHoy(){
+  let pend = 0, iso = hoyISO();
+  while(!esDiaHabil(iso) && pend < 14){ pend++; iso = addDiasISO(iso, -1); }
+  return pend;
+}
+// Días para alcanzar la meta replicando EXACTAMENTE las reglas del historial
+// (rachas de días no hábiles, abono con factor (1+d)^nD, y el momento en que
+// rinde cada aporte). base0: base sobre la que rinde el interés (con reinversión
+// = el propio saldo; sin reinversión = solo los aportes reales, como en el historial).
+function diasParaMetaConAportes(current, meta, aportes, base0){
   const daily = dailyRate(state.tasa, state.tasaType);
   const mensual = aportesMonto(aportes);
   if(daily <= 0 && mensual <= 0) return null;
-  let bal = current, dias = 0;
+  let base = (base0 != null ? base0 : current);
+  let bal = current;
+  let pend = streakPendienteHoy();
+  let dias = 0;
   const CAP = 365 * 60;
   while(bal < meta && dias < CAP){
     dias++;
     const iso = addDiasISO(hoyISO(), dias);
-    if(daily > 0) bal *= (1 + daily);
-    if(esFechaAporte(iso, aportes)) bal += mensual;
+    const ap = esFechaAporte(iso, aportes) ? mensual : 0;
+    if(!esDiaHabil(iso)){
+      base += ap; bal += ap; pend++;
+      continue;
+    }
+    const nD = pend + 1;
+    const ini = (daily > 0 && base > 0) ? base * (Math.pow(1 + daily, nD) - 1) : 0;
+    bal += ini;
+    if(state.compound) base += ini;
+    base += ap;
+    pend = 0;
   }
   if(bal < meta) return null;
   return { dias, fecha: addDiasISO(hoyISO(), dias) };
 }
 
-function renderGoal(current){
+function renderGoal(current, tl){
   const box = $("goalResult");
   box.classList.remove("reached");
   if(!state.contributions.length){ box.textContent = "Registra un aporte primero 😊"; return; }
@@ -1119,7 +1145,8 @@ function renderGoal(current){
   const mensual = aportesMonto(aportes);
   const labelDia = labelAporteMes(aportes);
   if(mensual > 0){
-    const r = diasParaMetaConAportes(current, state.meta, aportes);
+    const base0 = state.compound ? current : (tl ? tl.depositado : current);
+    const r = diasParaMetaConAportes(current, state.meta, aportes, base0);
     if(r){
       html += `Metiendo <b>${fmt$(mensual)}</b> ${labelDia}, llegás en <b>${r.dias} días</b> → hacia el <b>${fmtFecha(r.fecha)}</b>`;
       if(baseDias && baseDias > r.dias) html += ` <span class="hint">(${baseDias - r.dias} días antes que sin estos aportes 🚀)</span>`;
@@ -1163,20 +1190,44 @@ function renderWithdrawal(){
 }
 
 /* ================= Proyección ================= */
-function proyectarFuturo(current, n, aportes){
+// Replica EXACTAMENTE las reglas del historial (buildTimeline):
+//  - sábados, domingos y feriados no abonan: se acumulan y el próximo día hábil
+//    se abona la racha completa con factor (1+d)^nD;
+//  - un aporte hecho en día NO hábil entra al saldo base y cobra la racha completa
+//    (igual que en el historial);
+//  - un aporte en día hábil empieza a rendir al día siguiente;
+//  - si hoy no es día hábil, la primera racha incluye los días ya acumulados.
+// Con aporte extra = 0, la proyección coincide céntimo a céntimo con extender
+// el propio historial. base0: base sobre la que rinde el interés (con reinversión
+// = el saldo actual; sin reinversión = solo los aportes reales).
+function proyectarFuturo(current, n, aportes, base0){
   const daily = dailyRate(state.tasa, state.tasaType);
   const mensual = aportesMonto(aportes);
-  let bal = current, aporteTotal = 0, nAportes = 0;
+  let base = (base0 != null ? base0 : current);
+  let bal = current;
+  let pend = streakPendienteHoy();
+  let aporteTotal = 0, nAportes = 0;
   const fechasAporte = [];
   for(let i = 1; i <= n; i++){
     const iso = addDiasISO(hoyISO(), i);
-    if(daily > 0) bal *= (1 + daily);
-    if(esFechaAporte(iso, aportes)){
-      bal += mensual;
-      aporteTotal += mensual;
+    const ap = esFechaAporte(iso, aportes) ? mensual : 0;
+    if(ap > 0){
+      aporteTotal += ap;
       nAportes++;
       fechasAporte.push(iso);
     }
+    if(!esDiaHabil(iso)){
+      base += ap;
+      bal += ap;
+      pend++;
+      continue;
+    }
+    const nD = pend + 1;
+    const ini = (daily > 0 && base > 0) ? base * (Math.pow(1 + daily, nD) - 1) : 0;
+    bal += ini;
+    if(state.compound) base += ini;
+    base += ap;
+    pend = 0;
   }
   const ultimos = fechasAporte.slice(-5).slice().reverse();
   return { balance: bal, aporteTotal, nAportes, ultimosFechas: ultimos };
@@ -1186,21 +1237,23 @@ function labelAporteMes(a){
   if(a.mode === "habil") return "el día hábil " + (a.hab || 1) + " de cada mes";
   return "el día " + (a.dia || 1) + " de cada mes";
 }
-function renderProjection(current){
+function renderProjection(current, tl){
   const res = $("projResult");
   if(!state.contributions.length){ res.textContent = "Registra un aporte primero 😊"; return; }
   const n = Math.max(1, parseInt($("projDays").value || "0", 10));
   const aportes = state.aporteExtra;
   const mensual = aportesMonto(aportes);
+  const base0 = state.compound ? current : (tl ? tl.depositado : current);
+  const sinAportes = { monto: 0, mode: "dia", dia: 1, hab: 1 };
   if(mensual > 0){
-    const r = proyectarFuturo(current, n, aportes);
-    const base = current * Math.pow(1 + dailyRate(state.tasa, state.tasaType), n);
-    const extra = r.balance - base;
+    const r = proyectarFuturo(current, n, aportes, base0);
+    const rSin = proyectarFuturo(current, n, sinAportes, base0);
+    const extra = r.balance - rSin.balance;
     res.innerHTML = "Con <b>" + fmt$(current) + "</b> hoy + <b>" + fmt$(mensual) + "</b> " + labelAporteMes(aportes) + " → en <b>" + n + " días</b> tendrías <b>" + fmt$(r.balance) + "</b><br>";
     res.innerHTML += '<span class="hint">' + r.nAportes + " aporte(s) por " + fmt$(r.aporteTotal) + " · " + fmt$(extra) + " más que sin aportes</span>";
   } else {
-    const sinAportes = current * Math.pow(1 + dailyRate(state.tasa, state.tasaType), n);
-    res.textContent = "Con " + fmt$(current) + " hoy → en " + n + " días tendrías " + fmt$(sinAportes) + "  (+" + fmt$(sinAportes - current) + " de intereses)";
+    const rSin = proyectarFuturo(current, n, sinAportes, base0);
+    res.textContent = "Con " + fmt$(current) + " hoy → en " + n + " días tendrías " + fmt$(rSin.balance) + "  (+" + fmt$(rSin.balance - current) + " de intereses)";
   }
 }
 
