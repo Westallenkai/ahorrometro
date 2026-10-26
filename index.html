@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ahorrometro 💰</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E💰%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    color-scheme:dark;
+    --bg:#0e1117; --panel:#161b24; --panel2:#1c2330; --border:#2a3342;
+    --txt:#e8edf5; --muted:#8b97a8; --green:#3ddc84;
+    --blue:#4f9cf9; --red:#ff6b6b; --amber:#ffb454; --radius:14px;
+    --glow:#16233a; --shadow:0 1px 2px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.18);
+    --row-hover:#182031; --track:#232c3b;
+  }
+  :root[data-theme="light"]{
+    color-scheme:light;
+    --bg:#f2f4f8; --panel:#ffffff; --panel2:#edf0f5; --border:#d9e0ea;
+    --txt:#1d2432; --muted:#69758c;
+    --glow:#d7e4fb; --shadow:0 1px 2px rgba(20,30,50,.06), 0 8px 24px rgba(20,30,50,.06);
+    --row-hover:#eef2f8; --track:#dde3ec;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  body{
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+    background:var(--bg);
+    background-image:radial-gradient(1200px 600px at 70% -10%, var(--glow) 0%, transparent 60%);
+    background-repeat:no-repeat;
+    color:var(--txt); min-height:100vh; padding:calc(24px + env(safe-area-inset-top,0px)) 16px calc(60px + env(safe-area-inset-bottom,0px));
+    transition:background-color .25s ease, color .25s ease;
+  }
+  .wrap{max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:18px}
+  header{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px}
+  h1{font-size:1.6rem; font-weight:700; letter-spacing:.3px}
+  h1 span{background:linear-gradient(90deg,var(--green),var(--blue)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .sub{color:var(--muted); font-size:.85rem}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:18px; box-shadow:var(--shadow); transition:border-color .25s ease}
+  .card:hover{border-color:var(--muted)}
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+  @media(max-width:760px){ .grid-2{grid-template-columns:1fr} }
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:14px}
+  @media(max-width:760px){ .stats{grid-template-columns:repeat(2,1fr)} }
+  .stat{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); transition:border-color .25s ease}
+  .stat:hover{border-color:var(--muted)}
+  .stat .lbl{font-size:.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; margin-bottom:6px}
+  .stat .val{font-size:1.15rem; font-weight:700; font-variant-numeric:tabular-nums}
+  .stat.gain .val{color:var(--green)}
+  .stat.deposits .val{color:var(--blue)}
+  .stat.rate .val{color:var(--amber)}
+  label{display:block; font-size:.8rem; color:var(--muted); margin:10px 0 4px}
+  input,select{
+    width:100%; background:var(--panel2); color:var(--txt); border:1px solid var(--border);
+    border-radius:10px; padding:10px 12px; font-size:.95rem; outline:none;
+  }
+  input:focus,select:focus{border-color:var(--blue); box-shadow:0 0 0 3px rgba(79,156,249,.2)}
+  .form-row{display:flex; gap:10px; align-items:flex-end; margin-top:14px}
+  .form-row > div{flex:1}
+  .amt{flex:1.4 !important}
+  button{cursor:pointer; border:none; border-radius:10px; padding:11px 16px; font-size:.92rem; font-weight:600; transition:filter .15s ease, background .2s ease, color .2s ease, border-color .2s ease, transform .06s ease}
+  button:active{transform:translateY(1px)}
+  button:focus-visible{outline:none; box-shadow:0 0 0 3px rgba(79,156,249,.35)}
+  .btn-primary{background:linear-gradient(135deg,var(--green),#2bb86e); color:#08251a; width:100%}
+  .btn-primary:hover{filter:brightness(1.1)}
+  .btn-ghost{background:var(--panel2); color:var(--muted); border:1px solid var(--border)}
+  .btn-ghost:hover{color:var(--txt)}
+  .btn-danger{background:transparent; color:var(--red); border:1px solid #5a2b2b}
+  .btn-danger:hover{background:#2a1515}
+  .hint{font-size:.78rem; color:var(--muted); margin-top:8px; line-height:1.4}
+  .pillset{display:flex; gap:8px}
+  .pill{background:var(--panel2); border:1px solid var(--border); color:var(--muted); font-size:.85rem; padding:8px 14px}
+  .pill.active{background:var(--blue); border-color:var(--blue); color:#fff}
+  table{width:100%; border-collapse:collapse; font-size:.88rem}
+  th{ text-align:left; color:var(--muted); font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.7px; padding:8px 10px; border-bottom:1px solid var(--border)}
+  td{padding:10px; border-bottom:1px solid #202836; font-variant-numeric:tabular-nums}
+  tr:hover td{background:var(--row-hover)}
+  .money{font-weight:600}
+  .gain-cell{color:var(--green)}
+  .muted{color:var(--muted)}
+  .del{background:transparent; color:var(--muted); padding:4px 8px; border-radius:8px; font-size:.85rem}
+  .del:hover{color:var(--red); background:#2a1515}
+  .chart{width:100%; height:220px; display:block}
+  .proj-row{display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:12px}
+  .proj-row input[type=number]{width:90px}
+  .proj-result{font-size:1.05rem; font-weight:700; color:var(--green); margin-top:10px; font-variant-numeric:tabular-nums}
+  .goal-result{margin-top:14px; padding:14px; background:var(--panel2); border:1px dashed var(--border); border-radius:10px; font-size:.98rem; line-height:1.7}
+  .goal-result.reached{border-color:#2b5a44; background:#12291e; color:var(--green); font-weight:600}
+.goal-bar{height:12px; background:var(--track); border-radius:999px; overflow:hidden; margin-top:12px}
+  .goal-fill{height:100%; background:linear-gradient(90deg,var(--green),var(--blue)); border-radius:999px; transition:width .5s ease}
+  .empty{ text-align:center; color:var(--muted); padding:28px 10px; font-size:.92rem}
+  .badge{display:inline-block; background:var(--panel2); border:1px solid var(--border); border-radius:999px; padding:4px 12px; font-size:.75rem; color:var(--muted)}
+  h2{font-size:1rem; margin-bottom:4px}
+  .footer-actions{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px}
+
+  /* ---- Tema, cabecera, tooltip, toasts, modales, confeti ---- */
+  .header-right{display:flex; align-items:center; gap:8px; flex-wrap:wrap}
+  .today-chip{background:var(--panel); border:1px solid var(--border); border-radius:999px; padding:6px 12px; font-size:.78rem; color:var(--muted); font-variant-numeric:tabular-nums; box-shadow:var(--shadow)}
+  .theme-btn{background:var(--panel); border:1px solid var(--border); border-radius:999px; padding:5px 11px; font-size:.95rem; line-height:1.2; box-shadow:var(--shadow)}
+  .stat .val{display:inline-block}
+  .stat .val.bump{animation:bump .45s ease}
+  @keyframes bump{0%{transform:scale(1)} 30%{transform:scale(1.13)} 100%{transform:scale(1)}}
+  .chart-wrap{position:relative}
+  #chartTip{position:absolute; left:0; top:0; transform:translate(-50%,-100%); pointer-events:none; background:var(--panel); border:1px solid var(--border); border-radius:9px; padding:7px 11px; font-size:.76rem; line-height:1.55; white-space:nowrap; box-shadow:0 8px 24px rgba(0,0,0,.35); opacity:0; transition:opacity .12s ease; z-index:5; color:var(--muted)}
+  #chartTip b{color:var(--txt)}
+  .toasts{position:fixed; top:14px; right:14px; display:flex; flex-direction:column; gap:8px; z-index:200; max-width:min(92vw,380px)}
+  .toast{background:var(--panel); border:1px solid var(--border); border-left:3px solid var(--green); border-radius:10px; padding:10px 14px; font-size:.88rem; box-shadow:0 10px 28px rgba(0,0,0,.4); animation:toastIn .25s ease}
+  .toast.warn{border-left-color:var(--amber)}
+  .toast.err{border-left-color:var(--red)}
+  .toast.out{opacity:0; transform:translateX(14px); transition:opacity .3s ease, transform .3s ease}
+  @keyframes toastIn{from{opacity:0; transform:translateX(14px)} to{opacity:1; transform:none}}
+  .modal-backdrop{position:fixed; inset:0; background:rgba(6,9,14,.68); backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; padding:16px; z-index:150}
+  .modal-backdrop[hidden]{display:none}
+  .modal{background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:20px; width:min(92vw,430px); box-shadow:0 24px 70px rgba(0,0,0,.55); animation:modalIn .18s ease}
+  .modal h3{font-size:1.02rem; margin-bottom:6px}
+  .modal p{color:var(--muted); font-size:.9rem; line-height:1.55}
+  .modal input{margin-top:12px}
+  .modal-actions{display:flex; justify-content:flex-end; gap:8px; margin-top:18px}
+  .modal-actions .btn-primary{width:auto}
+  .btn-danger-solid{background:linear-gradient(135deg,var(--red),#e05252); color:#fff}
+  .btn-danger-solid:hover{filter:brightness(1.08)}
+  @keyframes modalIn{from{opacity:0; transform:scale(.96) translateY(8px)} to{opacity:1; transform:none}}
+  #confetti{position:fixed; inset:0; pointer-events:none; z-index:180}
+  ::-webkit-scrollbar{width:10px; height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:var(--border); border-radius:99px}
+  :root[data-theme="light"] ::-webkit-scrollbar-thumb{background:#c3cedd}
+  :root[data-theme="light"] .goal-result.reached{background:#e7f7ee; border-color:#9fd6b4; color:#157347}
+  :root[data-theme="light"] .del:hover{background:#fdecec}
+  :root[data-theme="light"] .btn-danger:hover{background:#fdecec}
+@media(max-width:560px){
+  .form-row{flex-wrap:wrap}
+  .form-row > div{min-width:130px}
+  input,select{font-size:16px}
+  body{padding-left:12px; padding-right:12px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <h1>💰 Ahorro<span>metro</span></h1>
+      <div class="sub">Capitalizá tu ahorro día por día, como Mercado Pago</div>
+    </div>
+    <div class="header-right">
+      <span class="today-chip" id="todayChip">📅 —</span>
+      <span class="badge" id="rateBadge">— % TNA</span>
+      <button class="theme-btn" id="btnTheme" type="button" title="Cambiar tema claro/oscuro">🌙</button>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="lbl">Total hoy</div><div class="val" id="stTotal">$0</div></div>
+    <div class="stat deposits"><div class="lbl">Aportado</div><div class="val" id="stDeposited">$0</div></div>
+    <div class="stat gain"><div class="lbl">Intereses ganados</div><div class="val" id="stGain">$0</div></div>
+    <div class="stat rate"><div class="lbl">Días ahorrando</div><div class="val" id="stDays">—</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>📈 Rendimiento del fondo</h2>
+      <div class="sub">Se capitaliza a diario (igual que Mercado Pago)</div>
+      <div style="margin-top:12px">
+        <div class="pillset">
+          <button class="pill active" id="pillTNA" type="button">TNA</button>
+          <button class="pill" id="pillTAE" type="button">TAE</button>
+        </div>
+      </div>
+      <label for="tasaInput">Tasa anual (%)</label>
+      <input type="number" id="tasaInput" min="0" max="500" step="0.1" value="40">
+      <div class="hint">
+        <b>TNA</b>: la tasa nominal que publican. <b>TAE</b>: la tasa efectiva real.<br>
+        <span id="equivTAE" style="color:var(--amber)">TAE equivalente: —</span> · <span id="equivDaily" style="color:var(--green)"></span>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:12px;color:var(--txt);cursor:pointer"><input type="checkbox" id="compoundChk" style="width:auto"> Reinvertir intereses (interés compuesto)</label>
+      <div class="hint" style="color:var(--green)">💡 ¿Mercado Pago te pagó un interés distinto al del historial? <b>Clickeá el valor</b> de la columna «Interés generado», ingresá el $ real que te abonaron y ese día queda corregido. Con ↺ volvés al cálculo automático.</div>
+    </div>
+
+    <div class="card">
+      <h2>➕ Registrar aporte</h2>
+      <div class="sub">¿Mete plata al fondo? Sumala acá con su fecha</div>
+      <div class="form-row">
+        <div><label for="apDate">Fecha</label><input type="date" id="apDate"></div>
+        <div class="amt"><label for="apAmount">Monto ($)</label><input type="number" id="apAmount" min="1" step="0.01" placeholder="50000"></div>
+      </div>
+      <label for="apNote">Nota (opcional)</label>
+      <input type="text" id="apNote" maxlength="60" placeholder="Sueldo, venta, regalo…">
+      <div style="margin-top:14px">
+        <button class="btn-primary" id="btnAdd" type="button">Sumar al fondo 💵</button>
+      </div>
+      <div class="hint">El aporte empieza a generar intereses desde el día siguiente a su fecha.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>📊 Evolución del fondo</h2>
+    <div class="chart-wrap">
+      <svg class="chart" id="chart" preserveAspectRatio="none" viewBox="0 0 900 220"></svg>
+      <div id="chartTip"></div>
+    </div>
+    <div class="hint">Pasá el mouse por la gráfica para ver el detalle de cada día · Verde: total del fondo · puntos azules: tus aportes · línea azul punteada: solo lo que aportaste</div>
+  </div>
+
+  <div class="card">
+<h2>🎯 Metas del fondo</h2>
+
+      <div class="sub">¿A cuánto querés llegar? Te estimamos cuándo lo vas a alcanzar, con o sin aportes extras</div>
+
+      <div class="form-row">
+
+        <div class="amt"><label for="metaInput">Meta ($)</label><input type="number" id="metaInput" min="1" step="1000" placeholder="500000"></div>
+
+        <button class="btn-ghost" type="button" id="btnMeta2x">2x mi saldo</button>
+
+        <button class="btn-ghost" type="button" id="btnMetaPlus">+50%</button>
+
+      </div>
+
+      <label for="metaName">Nombre de la meta (opcional)</label>
+
+      <input type="text" id="metaName" maxlength="40" placeholder="Viaje, auto, anticipación…">
+
+      <div class="pillset" style="margin-top:8px">
+
+        <button class="pill" type="button" data-gname="✈️ Viaje">✈️ Viaje</button>
+
+        <button class="pill" type="button" data-gname="🚗 Auto">🚗 Auto</button>
+
+        <button class="pill" type="button" data-gname="🏠 Anticipo">🏠 Anticipo</button>
+
+        <button class="pill" type="button" data-gname="💍 Boda">💍 Boda</button>
+
+      </div>
+
+      <label>Simulador: aporte extra mensual</label>
+      <div class="form-row" style="margin-top:0">
+        <div class="amt"><label for="apExtraMonto">Monto extra ($)</label><input type="number" id="apExtraMonto" min="0" step="1000" placeholder="20000"></div>
+        <div><label for="apExtraMode">Día de aporte</label>
+          <select id="apExtraMode">
+            <option value="dia">Día del mes</option>
+            <option value="habil">Día hábil del mes</option>
+          </select>
+        </div>
+        <div id="extraDiaRow"><label for="apExtraDia">Día (1-28)</label><input type="number" id="apExtraDia" min="1" max="28" value="1"></div>
+        <div id="extraHabRow" style="display:none"><label for="apExtraHab">Hábil (1-23)</label><input type="number" id="apExtraHab" min="1" max="23" value="1"></div>
+      </div>
+
+      <div class="goal-result" id="goalResult"></div>
+
+      <div class="hint">El aporte extra se suma cada mes en el día elegido, solo a efectos de estimar la meta y la proyección.</div>
+  </div>
+
+  <div class="card">
+    <h2>💸 Simular un retiro</h2>
+
+    <div class="sub">¿Necesitás sacarte algo antes de la meta? Calculá cuánto te quedaría</div>
+
+    <div class="form-row">
+
+      <div><label for="wtDate">Fecha del retiro</label><input type="date" id="wtDate"></div>
+
+      <div class="amt"><label for="wtAmount">A retirar ($)</label><input type="number" id="wtAmount" min="1" step="1000" placeholder="150000"></div>
+
+      <button class="btn-primary" style="width:auto" id="btnWt" type="button">Simular</button>
+
+    </div>
+
+    <div class="goal-result" id="wtResult"></div>
+
+    <div class="hint">Se calculan los rendimientos hasta esa fecha; el retiro se asume justo ese día y no toca tu historial (es solo una simulación).</div>
+
+  </div>
+
+  <div class="card">
+    <h2>🔮 Proyección</h2>
+    <div class="sub">¿Cuánto tenés si dejás el fondo quieto y no aportás más?</div>
+    <div class="proj-row">
+      <input type="number" id="projDays" min="1" max="1825" value="30">
+      <span class="muted">días más</span>
+      <button class="btn-ghost" type="button" data-pd="7">1 sem</button>
+      <button class="btn-ghost" type="button" data-pd="30">1 mes</button>
+      <button class="btn-ghost" type="button" data-pd="90">3 meses</button>
+      <button class="btn-ghost" type="button" data-pd="365">1 año</button>
+      <button class="btn-primary" style="width:auto" id="btnProj" type="button">Calcular</button>
+    </div>
+    <div class="proj-result" id="projResult"></div>
+  </div>
+
+  <div class="card">
+    <div class="footer-actions">
+      <div>
+        <h2>🧾 Historial de aportes</h2>
+        <div class="sub" id="histCount">0 aportes</div>
+      </div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap">
+        <button class="btn-ghost" id="btnCopy" type="button">📋 Copiar resumen</button>
+        <button class="btn-ghost" id="btnExport" type="button">Exportar CSV</button>
+        <button class="btn-ghost" id="btnBackup" type="button">Respaldar</button>
+        <button class="btn-ghost" id="btnRestore" type="button">Restaurar</button>
+        <input type="file" id="fileRestore" accept=".json,application/json" style="display:none">
+        <button class="btn-danger" id="btnClear" type="button">Borrar todo</button>
+      </div>
+    </div>
+    <div style="margin-top:10px; overflow-x:auto">
+      <table id="histTable" style="display:none">
+        <thead><tr><th>Fecha</th><th>Nota</th><th>Aporte</th><th title="Clickeá el valor para corregirlo a lo que Mercado Pago realmente te abonó">🎯 Interés generado<br><span style="font-weight:400; text-transform:none; letter-spacing:0; font-size:.62rem; color:var(--muted); cursor:pointer">✏️ clic para corregir</span></th><th title="Tasa anual equivalente de ese día">Tasa</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="goal-result" id="realRate" style="display:none;margin-top:14px"></div>
+      <div style="margin-top:14px">
+        <div class="sub">🗓️ Feriados (Mercado Pago no abona; el próximo día hábil paga todos los días juntos)</div>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0 4px">
+          <span class="hint" style="margin-right:2px">Precargar calendario oficial:</span>
+          <button class="btn-ghost" style="padding:4px 10px;font-size:.78rem" type="button" data-fer-load="2024">2024</button>
+          <button class="btn-ghost" style="padding:4px 10px;font-size:.78rem" type="button" data-fer-load="2025">2025</button>
+          <button class="btn-ghost" style="padding:4px 10px;font-size:.78rem" type="button" data-fer-load="2026">2026</button>
+          <button class="btn-ghost" style="padding:4px 10px;font-size:.78rem" type="button" data-fer-load="all">Todo</button>
+          <button class="btn-ghost" style="padding:4px 10px;font-size:.78rem" type="button" data-fer-clear="1">Vaciar</button>
+        </div>
+        <div id="feriadosList" style="margin:6px 0"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="date" id="ferDate" style="width:auto">
+          <button class="btn-ghost" type="button" id="btnFeriado">Agregar feriado manual</button>
+        </div>
+        <div class="hint" style="margin-top:4px">Los feriados precargados son nacionales del Boletín Oficial. Si tu realidad difiere (feriados provinciales, acuerdos bancarios, etc.), editá la lista individualmente.</div>
+      </div>
+      <div class="empty" id="emptyState">Todavía no registraste ningún aporte. 👆 Sumá tu primer aporte para empezar.</div>
+    </div>
+  </div>
+
+</div>
+<canvas id="confetti"></canvas>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="modal-backdrop" id="modalBack" hidden>
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3 id="modalTitle"></h3>
+    <p id="modalMsg"></p>
+    <input type="number" id="modalInput" step="0.01" min="0" hidden>
+    <div class="modal-actions">
+      <button class="btn-ghost" type="button" id="modalCancel">Cancelar</button>
+      <button class="btn-primary" type="button" id="modalOk">OK</button>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+
+/* ================= Estado (localStorage) ================= */
+const LS_KEY = "ahorrometro_v1";
+const state = {
+  contributions: [],   // { id, date (YYYY-MM-DD), amount, note }
+  tasa: 40,
+  tasaType: "TNA",     // "TNA" | "TAE"
+  compound: true,      // reinvertir intereses
+  meta: null,          // meta del fondo ($ o null)
+  metaName: "",        // nombre de la meta (texto)
+  // Simulador de aporte mensual extra (se usa en Metas y Proyección)
+  aporteExtra: { monto: 0, mode: "dia", dia: 1, hab: 1 },
+  diaAjuste: {},       // { ISO-día -> valor real abonado por Mercado Pago }
+  feriados: []         // días no hábiles extra (MP tampoco abona feriados)
+};
+/* ================= Feriados oficiales de Argentina (precargados por año) =================
+   Las fechas corresponden al DÍA EFECTIVO del feriado (ya con traspaso cuando corresponde:
+   sáb→lun siguiente, dom→lun siguiente, mar/mié→lun anterior para móviles, etc.).
+   Fuentes: Boletín Oficial de la República Argentina, Decretos anuales del
+   Ministerio de Trabajo y Capital Humano. Si tu realidad difiere, editá individualmente
+   desde la sección "Feriados" del historial (agregar/quitar libre). */
+const FERIADOS_OFICIALES = {
+  2024: [
+    { d:"2024-01-01", n:"Año Nuevo" },
+    { d:"2024-03-25", n:"24 de Marzo (traspasado del 24/3 dom)" },
+    { d:"2024-04-19", n:"Viernes Santo" },
+    { d:"2024-04-22", n:"Lunes 18" },
+    { d:"2024-05-01", n:"Día del Trabajador" },
+    { d:"2024-05-25", n:"Revolución de Mayo" },
+    { d:"2024-06-17", n:"Paso a la Inmortalidad de Güemes" },
+    { d:"2024-06-24", n:"Paso a la Inmortalidad de Belgrano (traspasado del 20/6 jue)" },
+    { d:"2024-07-08", n:"Día de la Independencia (traspasado del 9/7 mar)" },
+    { d:"2024-08-19", n:"Paso a la Inmortalidad de San Martín (traspasado del 17/8 sáb)" },
+    { d:"2024-11-25", n:"Día de la Soberanía Nacional (traspasado del 23/11 dom)" },
+    { d:"2024-12-10", n:"Inmaculada Concepción (traspasado del 8/12 sáb)" },
+    { d:"2024-12-24", n:"Navidad (traspasado del 25/12 mar)" }
+  ],
+  2025: [
+    { d:"2025-01-01", n:"Año Nuevo" },
+    { d:"2025-03-24", n:"24 de Marzo" },
+    { d:"2025-04-07", n:"Veteranos y Caídos en Malvinas (traspasado del 2/4 jue)" },
+    { d:"2025-04-18", n:"Viernes Santo" },
+    { d:"2025-04-21", n:"Lunes 18" },
+    { d:"2025-05-01", n:"Día del Trabajador" },
+    { d:"2025-05-25", n:"Revolución de Mayo" },
+    { d:"2025-06-16", n:"Paso a la Inmortalidad de Güemes (traspasado del 17/6 mar)" },
+    { d:"2025-06-20", n:"Paso a la Inmortalidad de Belgrano" },
+    { d:"2025-07-09", n:"Día de la Independencia" },
+    { d:"2025-08-18", n:"Paso a la Inmortalidad de San Martín (traspasado del 17/8 dom)" },
+    { d:"2025-11-23", n:"Día de la Soberanía Nacional" },
+    { d:"2025-12-09", n:"Inmaculada Concepción (traspasado del 8/12 dom)" },
+    { d:"2025-12-25", n:"Navidad" }
+  ],
+  2026: [
+    { d:"2026-01-01", n:"Año Nuevo" },
+    { d:"2026-03-24", n:"24 de Marzo" },
+    { d:"2026-04-02", n:"Veteranos y Caídos en Malvinas" },
+    { d:"2026-04-06", n:"Viernes Santo / Lunes 18 (ambos traspasan al mismo lunes)" },
+    { d:"2026-05-01", n:"Día del Trabajador" },
+    { d:"2026-05-25", n:"Revolución de Mayo" },
+    { d:"2026-06-15", n:"Paso a la Inmortalidad de Güemes (traspasado del 17/6 mié)" },
+    { d:"2026-06-22", n:"Paso a la Inmortalidad de Belgrano (traspasado del 20/6 sáb)" },
+    { d:"2026-07-09", n:"Día de la Independencia" },
+    { d:"2026-08-17", n:"Paso a la Inmortalidad de San Martín" },
+    { d:"2026-11-23", n:"Día de la Soberanía Nacional" },
+    { d:"2026-12-07", n:"Inmaculada Concepción (traspasado del 8/12 mar)" },
+    { d:"2026-12-25", n:"Navidad" }
+  ]
+};
+// Index fecha -> nombre (para mostrar en los chips)
+const FERIADOS_INFO = (() => {
+  const m = {};
+  for(const y of Object.keys(FERIADOS_OFICIALES)){
+    for(const f of FERIADOS_OFICIALES[y]) m[f.d] = f.n;
+  }
+  return m;
+})();
+// Por defecto: precargamos los feriados oficiales del año actual (según fecha local).
+{
+  const y = String(new Date().getFullYear());
+  state.feriados = (FERIADOS_OFICIALES[y] || []).map(x => x.d);
+}
+function esFeriado(iso){ return state.feriados.indexOf(iso) !== -1; }
+// Agrega los feriados oficiales de un año (o todos) sin duplicar.
+function precargarFeriados(anio){
+  if(anio === "all"){
+    for(const y of Object.keys(FERIADOS_OFICIALES)){
+      for(const it of FERIADOS_OFICIALES[y]){
+        if(state.feriados.indexOf(it.d) === -1) state.feriados.push(it.d);
+      }
+    }
+  } else {
+    const lista = FERIADOS_OFICIALES[String(anio)];
+    if(!lista){ toast("Año sin calendario precargado (" + anio + "). Usá el ingreso manual.","warn"); return; }
+    for(const it of lista){
+      if(state.feriados.indexOf(it.d) === -1) state.feriados.push(it.d);
+    }
+  }
+  save(); renderAll();
+  toast("Feriados de " + (anio === "all" ? "todos los años" : anio) + " precargados ✅","ok");
+}
+async function vaciarFeriados(){
+  if(!state.feriados.length) return;
+  const ok = await askModal({ title:"Vaciar feriados", msg:"¿Vaciar TODOS los feriados (precargados y manuales)?", danger:true, okLabel:"Vaciar" });
+  if(!ok) return;
+  state.feriados = [];
+  save(); renderAll();
+  toast("Feriados vaciados","warn");
+}
+
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      if(Array.isArray(d.contributions)) state.contributions = d.contributions;
+      if(typeof d.tasa === "number") state.tasa = d.tasa;
+      if(d.tasaType === "TNA" || d.tasaType === "TAE") state.tasaType = d.tasaType;
+      if(typeof d.compound === "boolean") state.compound = d.compound;
+      if(d.meta === null || (typeof d.meta === "number" && d.meta > 0)) state.meta = d.meta;
+if(typeof d.metaName === "string") state.metaName = d.metaName;
+      // Migrar metaMensual (v1) → aporteExtra.monto
+      if(typeof d.aporteExtra === "object" && d.aporteExtra && typeof d.aporteExtra.monto === "number"){
+        state.aporteExtra.monto = d.aporteExtra.monto;
+        if(d.aporteExtra.mode === "dia" || d.aporteExtra.mode === "habil") state.aporteExtra.mode = d.aporteExtra.mode;
+        if(typeof d.aporteExtra.dia === "number" && d.aporteExtra.dia >= 1 && d.aporteExtra.dia <= 28) state.aporteExtra.dia = d.aporteExtra.dia;
+        if(typeof d.aporteExtra.hab === "number" && d.aporteExtra.hab >= 1 && d.aporteExtra.hab <= 23) state.aporteExtra.hab = d.aporteExtra.hab;
+      } else if(typeof d.metaMensual === "number" && d.metaMensual > 0){
+        state.aporteExtra.monto = d.metaMensual; // legado, sigue en modo "dia"=1
+      }
+      // El respaldo es la fuente de verdad: si la clave no existe (respaldo de una versión
+      // anterior a los feriados) la lista se deja vacía, no se heredan los precargados.
+      state.feriados = Array.isArray(d.feriados) ? d.feriados.filter(x => typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x)) : [];
+      // diaAjuste: mapa ISO (lunes) -> $ real abonado por Mercado Pago
+      if(d.diaAjuste && typeof d.diaAjuste === "object"){
+        const clean = {};
+        for(const k of Object.keys(d.diaAjuste)){
+          const v = d.diaAjuste[k];
+          if(/^\d{4}-\d{2}-\d{2}$/.test(k) && typeof v === "number" && isFinite(v) && v >= 0) clean[k] = v;
+        }
+        state.diaAjuste = clean;
+      }
+    }
+  }catch(e){ console.warn("No se pudo leer el estado", e); }
+}
+function save(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){ console.warn("No se pudo guardar", e); }
+}
+
+/* ================= Finanzas ================= */
+// Tasa diaria de capitalización. TNA: nominal/365 (lo que hace Mercado Pago a nivel diario). TAE: efectiva.
+function dailyRate(tasaAnual, tipo){
+  const r = tasaAnual / 100;
+  if(tipo === "TAE") return Math.pow(1 + r, 1/365) - 1;
+  return r / 365;
+}
+// TNA (nominal anual) -> TAE (tasa anual efectiva) con capitalización diaria.
+// Lo que hace Mercado Pago: la TNA nominal se divide en 365 períodos diarios.
+function taeEquiv(tasaAnual){
+  return (Math.pow(1 + tasaAnual/100/365, 365) - 1) * 100;
+}
+// Convierte TNA anual (%) -> rendimiento diario equivalente (%). Igual que dailyRate pero en %.
+function tnaToDailyPct(tnaPct, tipo){
+  const daily = dailyRate(tnaPct, tipo);
+  return daily * 100;
+}
+/* Corregir un día del timeline: el interés que MP realmente abonó ese día. */
+async function calibrarDia(iso){
+  if(!state.diaAjuste) state.diaAjuste = {};
+  const c = (state.contributions || []).filter(x => x.date && x.date <= iso);
+  if(!c.length) return;
+  const actual = (state.diaAjuste[iso] ?? null);
+  const val = await askModal({
+    title: "Corregir el " + fmtFecha(iso),
+    msg: "¿Cuánto te abonó Mercado Pago ese día?" +
+      (actual != null ? " Ahora lo tenés ajustado a " + fmt$(actual) + "." : " Hoy la app lo calcula automáticamente.") +
+      " Dejá el campo vacío para volver al cálculo automático. Al guardarlo, la app recalcula la tasa y actualiza los días siguientes sin corregir.",
+    input: "number",
+    initial: actual != null ? actual.toFixed(2) : "",
+    allowEmpty: true,
+    okLabel: "Guardar"
+  });
+  if(val === null) return;
+  if(val === ""){ delete state.diaAjuste[iso]; save(); renderAll(); toast("Día " + fmtFecha(iso) + " de vuelta al cálculo automático ↺","ok"); return; }
+  state.diaAjuste[iso] = Math.round(val * 100) / 100;
+  save(); renderAll();
+  toast("Día " + fmtFecha(iso) + " calibrado: tasa actualizada 🎯","ok");
+}
+function undoCalibrarDia(iso){
+  if(!state.diaAjuste) return;
+  delete state.diaAjuste[iso];
+  save(); renderAll();
+}
+
+// Simula día a día desde el primer aporte hasta "hastaStr":
+// cada día primero se abonan intereses sobre el saldo y después se suman los aportes de ese día.
+function simulate(contribs, tasa, hastaStr){
+  if(contribs.length === 0) return { balance: 0, puntos: [] };
+  const { filas, balanceTotal } = buildTimeline(contribs, tasa, hastaStr);
+  const puntos = [];
+  let acc = 0;
+  for(const f of filas){
+    acc += (f.tipo === "aporte" ? f.aporte : f.interes);
+    if(f.tipo === "interes") puntos.push({ date: f.iso, balance: acc });
+  }
+  return { balance: balanceTotal, puntos, filas };
+}
+/* ================= Timeline día a día =================
+   Mercado Pago NO abona sábados ni domingos. El lunes siguiente
+   abona los 3 días acumulados (vie+sáb+dom) de una sola vez.
+   El interés rinde sobre el saldo de aportes (no sobre la ganancia).
+======================================================== */
+function aportesPorDia(contribs, hastaStr){
+  const m = {};
+  for(const c of contribs){
+    if(!c || typeof c.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(c.date)) continue;
+    if(!isFinite(c.amount)) continue;
+    if(c.date > hastaStr) continue;
+    m[c.date] = (m[c.date] || 0) + c.amount;
+  }
+  return m;
+}
+function buildTimeline(contribs, tasa, hastaStr){
+  const byDay = aportesPorDia(contribs, hastaStr);
+  const fechas = Object.keys(byDay).sort();
+  const depositado = fechas.reduce((s,f)=>s + byDay[f], 0);
+  if(!fechas.length) return { filas: [], balanceTotal: 0, depositado: 0, pendientes: 0, real: null };
+  const first = fechas[0];
+  // Tasa diaria vigente: arranca con la configurada y se RECALCULA cada vez que hay un día corregido
+  // a mano (ahí se despeja la tasa implícita) y se arrastra a los días siguientes sin corregir.
+  let daily = dailyRate(+tasa, state.tasaType);
+  const totalDias = Math.round((new Date(hastaStr+"T12:00:00") - new Date(first+"T12:00:00")) / 86400000);
+  const filas = [], obs = [];
+  // saldoAntes = balance ENTRANTE del día (aportes de días anteriores, no el de hoy).
+  // pend = días no hábiles (sáb, dom, feriados) acumulados: se pagan juntos en el próximo día hábil.
+  let saldoAntes = 0, pend = 0, bal = depositado;
+  for(let i = 0; i <= totalDias; i++){
+    const iso = addDiasISO(first, i);
+    const dow = new Date(iso+"T12:00:00").getDay();
+    const ap  = byDay[iso] || 0;
+    if(ap > 0) filas.push({ iso, tipo:"aporte", aporte: ap, diaDeLabel: fmtFecha(iso) });
+
+    const adj  = state.diaAjuste[iso];
+    const real = (typeof adj === "number" && isFinite(adj) && adj >= 0);
+    // Un feriado con valor cargado a mano se respeta como día pagado.
+    if(dow === 0 || dow === 6 || (esFeriado(iso) && !real)){
+      saldoAntes += ap;
+      pend++;
+      continue;
+    }
+
+    const nD  = pend + 1;
+    const est = (daily > 0 && saldoAntes > 0)
+      ? saldoAntes * (Math.pow(1 + daily, nD) - 1) : 0;
+    const ini = real ? adj : Math.max(0, est);
+    let tasaDia = daily;
+    if(real && saldoAntes > 0 && adj > 0){
+      // interés = saldo * ((1+d)^nD - 1)  →  d = (1 + interés/saldo)^(1/nD) - 1
+      daily = Math.pow(1 + adj / saldoAntes, 1 / nD) - 1;
+      tasaDia = daily;
+      obs.push({ iso, nD, saldoAntes, interes: adj, d: daily });
+    }
+    if((est > 0) || real){
+      filas.push({
+        iso, tipo: "interes",
+        nDias: nD,
+        interesEstimado: Math.max(0, est),
+        interes: ini,
+        saldoAntes,
+        ajustado: real,
+        tasaDia,
+        diaDeLabel: nD > 1 ? fmtFecha(iso) + " · +" + (nD-1) + "d" : fmtFecha(iso)
+      });
+    }
+    bal += ini;
+    saldoAntes += ap + (state.compound ? ini : 0);
+    pend = 0;
+  }
+  // Tasa real estimada: promedio de las tasas diarias observadas, ponderado por saldo × días.
+  let realRes = null;
+  if(obs.length){
+    let w = 0, wd = 0;
+    for(const o of obs){ const ww = o.saldoAntes * o.nD; w += ww; wd += ww * o.d; }
+    const dAvg = wd / w;
+    const dLast = obs[obs.length-1].d;
+    realRes = { n: obs.length, dAvg, dLast, lastIso: obs[obs.length-1].iso,
+                tnaAvg: dAvg * 365 * 100, teaAvg: (Math.pow(1 + dAvg, 365) - 1) * 100,
+                tnaLast: dLast * 365 * 100 };
+  }
+  return { filas, balanceTotal: bal, depositado, pendientes: pend, real: realRes };
+}
+/* ================= Utilidades ================= */
+const $ = id => document.getElementById(id);
+function fmt$(n){
+  return new Intl.NumberFormat("es-AR", { style:"currency", currency:"ARS", minimumFractionDigits:2, maximumFractionDigits:2 }).format(n);
+}
+function fmtFecha(iso){
+  const [y,m,d] = iso.split("-");
+  return d + "/" + m + "/" + y;
+}
+function hoyISO(){
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function diasEntre(isoA, isoB){
+  if(isoA > isoB) return 0;
+  return Math.max(0, Math.round((new Date(isoB+"T12:00:00") - new Date(isoA+"T12:00:00")) / 86400000));
+}
+function addDiasISO(iso, n){
+  const d = new Date(iso + "T12:00:00");
+  d.setDate(d.getDate() + n);
+  return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0");
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+let nextId = 1;
+const newId = () => Date.now() + "_" + (nextId++);
+
+/* ================= UI: tema, toasts, modales, confeti, resumen ================= */
+function setStat(id, val){
+  const el = $(id);
+  if(!el) return;
+  if(el.textContent !== val){
+    el.textContent = val;
+    el.classList.remove("bump");
+    void el.offsetWidth;
+    el.classList.add("bump");
+  }
+}
+function applyTheme(t){
+  document.documentElement.setAttribute("data-theme", t);
+  const b = $("btnTheme");
+  if(b) b.textContent = (t === "light") ? "☀️" : "🌙";
+}
+function initTheme(){
+  let t = "dark";
+  try{
+    const s = localStorage.getItem("ahorrometro_theme");
+    if(s === "light" || s === "dark") t = s;
+  }catch(e){}
+  applyTheme(t);
+  const b = $("btnTheme");
+  if(!b) return;
+  b.addEventListener("click", ()=>{
+    const n = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+    applyTheme(n);
+    try{ localStorage.setItem("ahorrometro_theme", n); }catch(e){}
+  });
+}
+function toast(msg, type){
+  const box = $("toasts");
+  if(!box) return;
+  const t = document.createElement("div");
+  t.className = "toast " + (type || "ok");
+  t.textContent = msg;
+  box.appendChild(t);
+  while(box.children.length > 4) box.firstChild.remove();
+  setTimeout(()=>{ t.classList.add("out"); setTimeout(()=>t.remove(), 320); }, 2800);
+}
+// Modal reemplaza a confirm()/prompt(): resuelve con true (aceptar), null (cancelar) o el valor del input.
+function askModal(opts){
+  opts = opts || {};
+  return new Promise(resolve=>{
+    const back = $("modalBack"), inp = $("modalInput"), okBtn = $("modalOk"), cancelBtn = $("modalCancel");
+    if(!back){ resolve(null); return; }
+    $("modalTitle").textContent = opts.title || "Confirmar";
+    const msgEl = $("modalMsg");
+    msgEl.textContent = opts.msg || "";
+    msgEl.style.display = opts.msg ? "" : "none";
+    const isNum = opts.input === "number";
+    inp.type = isNum ? "number" : "text";
+    inp.hidden = !opts.input;
+    if(opts.input) inp.value = (opts.initial != null) ? opts.initial : "";
+    okBtn.textContent = opts.okLabel || (opts.input ? "Guardar" : "OK");
+    okBtn.className = opts.danger ? "btn-danger-solid" : "btn-primary";
+    back.hidden = false;
+    setTimeout(()=>{ if(opts.input){ inp.focus(); inp.select(); } else okBtn.focus(); }, 40);
+    let done = false;
+    const finish = (val)=>{
+      if(done) return;
+      done = true;
+      back.hidden = true;
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      inp.removeEventListener("keydown", onKey);
+      back.removeEventListener("mousedown", onBack);
+      resolve(val);
+    };
+    function onOk(){
+      if(opts.input){
+        if(isNum){
+          const raw = String(inp.value).trim();
+          if(raw === ""){
+            if(opts.allowEmpty){ finish(""); return; }
+            toast("Ingresá un número válido","err");
+            return;
+          }
+          const v = parseFloat(raw.replace(",", "."));
+          if(!isFinite(v) || v < 0){ toast("Ingresá un número válido","err"); return; }
+          finish(v);
+        } else {
+          if(!inp.value.trim()){ toast("Ingresá un valor","err"); return; }
+          finish(inp.value.trim());
+        }
+      } else finish(true);
+    }
+    function onCancel(){ finish(null); }
+    function onKey(e){ if(e.key === "Enter"){ e.preventDefault(); onOk(); } else if(e.key === "Escape"){ onCancel(); } }
+    function onBack(e){ if(e.target === back) onCancel(); }
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    inp.addEventListener("keydown", onKey);
+    back.addEventListener("mousedown", onBack);
+  });
+}
+let confettiShown = false;
+function confettiBurst(){
+  const cv = $("confetti");
+  if(!cv || !cv.getContext) return;
+  cv.width = window.innerWidth; cv.height = window.innerHeight;
+  const ctx = cv.getContext("2d");
+  const colors = ["#3ddc84","#4f9cf9","#ffb454","#ff6b6b","#e8edf5"];
+  const parts = [];
+  for(let i=0;i<140;i++){
+    parts.push({
+      x: cv.width/2 + (Math.random()-0.5)*220,
+      y: cv.height*0.3 + (Math.random()-0.5)*80,
+      vx: (Math.random()-0.5)*10,
+      vy: -(Math.random()*9+4),
+      s: Math.random()*7+3,
+      c: colors[i % colors.length],
+      r: Math.random()*Math.PI,
+      vr: (Math.random()-0.5)*0.3,
+      life: 130 + Math.random()*70
+    });
+  }
+  let frame = 0;
+  (function step(){
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    let alive = false;
+    for(const p of parts){
+      if(p.life <= 0) continue;
+      alive = true;
+      p.x += p.vx; p.y += p.vy; p.vy += 0.22; p.r += p.vr; p.life--;
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.r);
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.life/40));
+      ctx.fillStyle = p.c;
+      ctx.fillRect(-p.s/2, -p.s/2, p.s, p.s*0.62);
+      ctx.restore();
+    }
+    frame++;
+    if(alive && frame < 400) requestAnimationFrame(step);
+    else ctx.clearRect(0, 0, cv.width, cv.height);
+  })();
+}
+function copiarResumen(){
+  const contribs = state.contributions;
+  if(!contribs.length){ toast("Todavía no hay nada para resumir 😊","warn"); return; }
+  const hoy = hoyISO();
+  const ordenados = [...contribs].sort((a,b)=>a.date.localeCompare(b.date));
+  const tl = buildTimeline(ordenados, state.tasa, hoy);
+  const bal = tl.balanceTotal, dep = tl.depositado, gan = bal - dep;
+  const lines = [
+    "💰 Ahorrómetro · " + fmtFecha(hoy),
+    "Saldo total: " + fmt$(bal),
+    "Aportado: " + fmt$(dep) + " · Intereses ganados: " + fmt$(gan),
+    "Días ahorrando: " + diasEntre(ordenados[0].date, hoy),
+    "Tasa: " + state.tasa + " % " + state.tasaType
+  ];
+  if(state.meta > 0){
+    lines.push("Meta" + (state.metaName ? " «" + state.metaName + "»" : "") + ": " + fmt$(state.meta) + " (" + (100*bal/state.meta).toFixed(1).replace(".", ",") + "%)");
+  }
+  const text = lines.join("\n");
+  const done = ()=> toast("Resumen copiado al portapapeles 📋","ok");
+  const fallback = ()=>{
+    try{
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      done();
+    }catch(e){ toast("No se pudo copiar el resumen","err"); }
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(fallback);
+  } else fallback();
+}
+
+/* ================= Render ================= */
+function renderAll(){
+  const contribs = [...state.contributions].sort((a,b)=> a.date.localeCompare(b.date));
+  const hoy = hoyISO();
+  const tl = buildTimeline(contribs, state.tasa, hoy);
+  const balance = tl.balanceTotal;
+  const depositado = tl.depositado;
+  const ganancia = balance - depositado;
+  const pointsAcc = [];
+  let balAcc = 0;
+  for(const f of tl.filas){
+    if(f.tipo === "aporte") balAcc += f.aporte;
+    else balAcc += f.interes;
+    pointsAcc.push({ date: f.iso, balance: balAcc });
+  }
+  const puntos = pointsAcc;
+
+  setStat("stTotal", fmt$(balance));
+  setStat("stDeposited", fmt$(depositado));
+  setStat("stGain", fmt$(ganancia));
+  setStat("stDays", contribs.length ? diasEntre(contribs[0].date, hoy) + " días" : "—");
+  $("rateBadge").textContent = state.tasa + " % " + state.tasaType;
+  // Chip "hoy": fecha de hoy + lo que Mercado Pago abona hoy (o por qué no abona).
+  {
+    const dow = new Date(hoy + "T12:00:00").getDay();
+    let txt = "📅 " + fmtFecha(hoy);
+    if(tl.filas.length){
+      const fHoy = tl.filas.filter(f => f.tipo === "interes" && f.iso === hoy).pop();
+      // Solo el estado del día, sin el monto: el valor exacto ya aparece en la última
+      // fila del historial, y repetirlo acá sería informarlo dos veces.
+      if(fHoy) txt += fHoy.nDias > 1 ? " · hoy: pagó " + fHoy.nDias + " días juntos ✅" : " · hoy: pagó su interés ✅";
+      else if(dow === 0 || dow === 6) txt += " · hoy no abona (fin de semana)";
+      else if(esFeriado(hoy)) txt += " · hoy no abona (feriado)";
+    }
+    $("todayChip").textContent = txt;
+  }
+  $("equivTAE").textContent = state.tasaType === "TNA" ? "TAE equivalente: " + taeEquiv(state.tasa).toFixed(1) + " %" : "TNA equivalente: " + (365 * (Math.pow(1 + state.tasa/100, 1/365) - 1) * 100).toFixed(1) + " %";
+  $("equivDaily").textContent = " · Rendimiento diario: " + tnaToDailyPct(state.tasa, state.tasaType).toFixed(4) + " %";
+  $("pillTNA").classList.toggle("active", state.tasaType==="TNA");
+  $("pillTAE").classList.toggle("active", state.tasaType==="TAE");
+
+  $("histCount").textContent = contribs.length + (contribs.length === 1 ? " aporte" : " aportes");
+  $("emptyState").style.display = contribs.length ? "none" : "block";
+  $("histTable").style.display = contribs.length ? "table" : "none";
+
+  // Historial: cada día (aporte e interés pago MP) en el timeline.
+  // La celda de interés es clickeable para corregirla a lo que MP realmente abonó.
+  const tbody = document.querySelector("#histTable tbody");
+  tbody.innerHTML = "";
+  const noteByDate = {};
+  for(const c of contribs) noteByDate[c.date] = noteByDate[c.date] ? noteByDate[c.date] + (c.note ? " · " + c.note : "") : (c.note || "");
+  for(const f of tl.filas){
+    const row = document.createElement("tr");
+    if(f.tipo === "aporte"){
+      row.innerHTML =
+        `<td>${fmtFecha(f.iso)}</td>` +
+        `<td class="muted">${escapeHtml(noteByDate[f.iso] || "—")}</td>` +
+        `<td class="money">${fmt$(f.aporte)}</td>` +
+        `<td class="muted">—</td>` +
+        `<td>${contribs.filter(c=>c.date===f.iso).map(c=>`<button class="del" data-id="${escapeHtml(c.id)}" title="Eliminar aporte de ${fmt$(c.amount)}" type="button">✕</button>`).join("")}</td>`;
+    } else {
+      const extra = f.nDias > 1 ? ` <span class="muted" title="Incluye fin de semana (MP abona de una vez)">${f.nDias}d</span>` : "";
+      row.innerHTML =
+        `<td>${fmtFecha(f.iso)}${extra}</td>` +
+        `<td class="muted">abono MP</td>` +
+        `<td class="muted">—</td>` +
+        `<td><span class="gain-cell gain-cell-day" data-iso="${f.iso}" title="${f.ajustado ? "Clic para editar el interés manual" : "Clic para corregir a lo que MP realmente te abonó"}" style="cursor:pointer;user-select:none${f.ajustado ? ";border-bottom:1px dashed var(--blue)" : ""}">+${fmt$(f.interes)} <span style="color:var(--muted);font-size:.85em">✎</span></span>` +
+        (f.ajustado ? `<button class="del" data-iso-und="${f.iso}" title="Volver al cálculo automático" type="button" style="margin-left:6px">↺</button>` : ``) +
+        `</td><td class="muted" style="font-size:.78rem;white-space:nowrap${f.ajustado ? ";color:var(--blue)" : ""}" title="${f.ajustado ? "Tasa calculada a partir del valor que cargaste" : "Tasa estimada (arrastrada del último día corregido)"}">${fmtPct(f.tasaDia * 365 * 100)} TNA</td>`;
+    }
+    tbody.appendChild(row);
+  }
+
+  renderTasaReal(tl);
+  renderFeriados();
+  drawChart(puntos, contribs, tl.filas);
+  renderGoal(balance, tl);
+  renderProjection(balance, tl);
+renderWithdrawal();
+}
+
+/* ================= Tasa real estimada + feriados ================= */
+function fmtPct(n){ return n.toFixed(2).replace(".", ",") + " %"; }
+function renderTasaReal(tl){
+  const box = $("realRate");
+  if(!tl.filas.length){ box.style.display = "none"; return; }
+  box.style.display = "block";
+  const r = tl.real;
+  if(!r){
+    box.innerHTML = `🎯 <b>Tasa real</b>: corregí al menos un día de la tabla con lo que Mercado Pago te abonó y calculo la tasa real y actualizo todos los días siguientes.`;
+    return;
+  }
+  const cfg = state.tasaType === "TNA" ? state.tasa : (Math.pow(1 + state.tasa/100, 1) - 1) * 100;
+  const usar = state.tasaType === "TNA" ? r.tnaAvg : r.teaAvg;
+  box.innerHTML =
+    `📊 <b>Tasa real estimada</b> <span class="hint">(promedio de ${r.n} ${r.n === 1 ? "día corregido" : "días corregidos"}, ponderado por saldo)</span><br>` +
+    `<b>${fmtPct(r.tnaAvg)} TNA</b> · ${fmtPct(r.teaAvg)} TEA · rendimiento diario ${(r.dAvg*100).toFixed(4).replace(".", ",")} %<br>` +
+    `<span class="hint">Último día corregido (${fmtFecha(r.lastIso)}): ${fmtPct(r.tnaLast)} TNA. Los días sin corregir se calculan con esa tasa.<br>` +
+    `Tasa configurada en el fondo: ${state.tasa} % ${state.tasaType}.</span><br>` +
+    `<button class="btn-ghost" type="button" id="btnUseReal" data-val="${usar.toFixed(2)}" style="margin-top:8px">Usar ${fmtPct(usar)} ${state.tasaType} como tasa del fondo (metas y proyección)</button>`;
+}
+function renderFeriados(){
+  const box = $("feriadosList");
+  const lista = [...state.feriados].sort();
+  box.innerHTML = lista.length
+    ? lista.map(f => {
+        const nombre = FERIADOS_INFO[f];
+        const title = nombre ? ` title="${nombre}"` : "";
+        const tag = nombre ? `<span style="color:var(--muted);font-size:.72rem;margin-left:4px">· ${nombre}</span>` : "";
+        return `<span class="muted"${title} style="display:inline-block;border:1px solid var(--border,#2a3547);border-radius:12px;padding:2px 8px;margin:2px 4px 2px 0;font-size:.78rem">${fmtFecha(f)}${tag} <a href="#" data-fer-del="${f}" style="color:inherit;text-decoration:none" title="Quitar">✕</a></span>`;
+      }).join("")
+    : `<span class="hint">Sin feriados cargados. Usá los botones de arriba para precargar el calendario oficial.</span>`;
+}
+
+/* ================= Gráfica SVG ================= */
+function drawChart(puntos, contribs, filas){
+  const svg = $("chart");
+  const tip = $("chartTip");
+  const W = Math.max(280, Math.round(svg.clientWidth || 900)), H = 220, P = { t:14, r:16, b:30, l:62 };
+  svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+  if(puntos.length < 2){
+    svg.innerHTML = `<text x="${W/2}" y="${H/2}" text-anchor="middle" style="fill:var(--muted)" font-size="14">Registra aportes para ver la evolución 📊</text>`;
+    if(tip) tip.style.opacity = 0;
+    return;
+  }
+  const valores = puntos.map(p=>p.balance);
+  const max = Math.max(...valores) * 1.08;
+  const n = puntos.length;
+  const x = i => P.l + (W - P.l - P.r) * (i/(n-1));
+  const y = v => P.t + (H - P.t - P.b) * (1 - v/(max || 1));
+  const compact = new Intl.NumberFormat("es-AR", { notation:"compact", maximumFractionDigits:1 });
+
+  let s = "";
+  for(let g=0; g<=4; g++){
+    const gy = P.t + (H - P.t - P.b) * g/5;
+    s += `<line x1="${P.l}" y1="${gy}" x2="${W-P.r}" y2="${gy}" style="stroke:var(--track)" stroke-width="1"/>`;
+    s += `<text x="${P.l-8}" y="${gy+4}" text-anchor="end" style="fill:var(--muted)" font-size="10.5">${compact.format(max*(1 - g/5))}</text>`;
+  }
+  let area = `M ${x(0)} ${y(valores[0])}`;
+  for(let i=1;i<n;i++) area += ` L ${x(i)} ${y(valores[i])}`;
+  area += ` L ${x(n-1)} ${H-P.b} L ${x(0)} ${H-P.b} Z`;
+  s += `<defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#3ddc84" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="#3ddc84" stop-opacity="0"/>
+        </linearGradient></defs>`;
+  s += `<path d="${area}" fill="url(#ga)"/>`;
+
+  let line = `M ${x(0)} ${y(valores[0])}`;
+  for(let i=1;i<n;i++) line += ` L ${x(i)} ${y(valores[i])}`;
+  s += `<path d="${line}" fill="none" stroke="#3ddc84" stroke-width="2.5" stroke-linejoin="round"/>`;
+
+  const map = {};
+  for(const c of [...contribs].sort((a,b)=>a.date.localeCompare(b.date))) map[c.date] = (map[c.date]||0) + c.amount;
+  let sum = 0, dep = [];
+  for(const p of puntos){ sum += (map[p.date]||0); dep.push(sum); }
+  let line2 = `M ${x(0)} ${y(dep[0])}`;
+  for(let i=1;i<n;i++) line2 += ` L ${x(i)} ${y(dep[i])}`;
+  s += `<path d="${line2}" fill="none" stroke="#4f9cf9" stroke-width="1.5" stroke-dasharray="5 5" opacity="0.7"/>`;
+
+  for(let i=0;i<n;i++){
+    if(map[puntos[i].date]){
+      s += `<circle cx="${x(i)}" cy="${y(valores[i])}" r="5" fill="#4f9cf9" style="stroke:var(--bg)" stroke-width="2"/>`;
+    }
+  }
+  const pasoLabel = Math.max(1, Math.floor(n/6));
+  for(let i=0;i<n;i+=pasoLabel){
+    s += `<text x="${x(i)}" y="${H-8}" text-anchor="middle" style="fill:var(--muted)" font-size="10">${fmtFecha(puntos[i].date).slice(0,5)}</text>`;
+  }
+  s += `<text x="${x(n-1)-10}" y="${y(valores[n-1])-10}" text-anchor="end" style="fill:var(--txt)" font-size="12" font-weight="700">${fmt$(valores[n-1])}</text>`;
+  s += `<line id="chartGuide" x1="0" y1="${P.t}" x2="0" y2="${H-P.b}" style="stroke:var(--blue)" stroke-width="1" stroke-dasharray="3 3" opacity="0.6" visibility="hidden"/>`;
+  s += `<circle id="chartDot" r="5" fill="#4f9cf9" style="stroke:var(--bg)" stroke-width="2" visibility="hidden"/>`;
+  svg.innerHTML = s;
+
+  // Tooltip al pasar el mouse: fecha, balance y el interés abonado ese día.
+  const byIso = {};
+  for(const f of (filas || [])) if(f.tipo === "interes") byIso[f.iso] = f;
+  svg.onmousemove = (e)=>{
+    if(!tip) return;
+    const r = svg.getBoundingClientRect();
+    let i = Math.round((e.clientX - r.left - P.l) / (W - P.l - P.r) * (n-1));
+    i = Math.max(0, Math.min(n-1, i));
+    const p = puntos[i];
+    const guide = svg.querySelector("#chartGuide"), dot = svg.querySelector("#chartDot");
+    if(guide){ guide.setAttribute("x1", x(i)); guide.setAttribute("x2", x(i)); guide.setAttribute("visibility","visible"); }
+    if(dot){ dot.setAttribute("cx", x(i)); dot.setAttribute("cy", y(p.balance)); dot.setAttribute("visibility","visible"); }
+    let html = `<b>${fmtFecha(p.date)}</b><br>${fmt$(p.balance)}`;
+    const it = byIso[p.date];
+    if(it) html += `<br><span style="color:var(--green)">+${fmt$(it.interes)} de interés${it.nDias > 1 ? " (" + it.nDias + "d juntos)" : ""}</span>`;
+    tip.innerHTML = html;
+    tip.style.left = Math.max(70, Math.min(W-70, x(i))) + "px";
+    tip.style.top = Math.max(40, y(p.balance) - 12) + "px";
+    tip.style.opacity = 1;
+  };
+  svg.onmouseleave = ()=>{
+    if(tip) tip.style.opacity = 0;
+    const g = svg.querySelector("#chartGuide"), d = svg.querySelector("#chartDot");
+    if(g) g.setAttribute("visibility","hidden");
+    if(d) d.setAttribute("visibility","hidden");
+  };
+}
+
+/* ================= Meta del fondo ================= */
+function textoPeriodo(dias){
+  const meses = dias / 30.44;
+  if(meses < 1) return "";
+  const f = x => x.toFixed(1).replace(".", ",");
+  return meses >= 12 ? f(meses / 12) + " años" : f(meses) + " meses";
+}
+function diasDelMes(iso){
+  const y = +iso.slice(0,4), m = +iso.slice(5,7);
+  return new Date(y, m, 0).getDate();
+}
+// Día hábil = lunes a viernes (no descuenta feriados: es una estimación, no un calendario oficial).
+function esDiaHabil(iso){
+  const dow = new Date(iso + "T12:00:00").getDay();
+  return dow >= 1 && dow <= 5 && !esFeriado(iso);
+}
+// ¿El día "iso" tiene un aporte extra según la configuración {monto, mode, dia, hab}?
+//   mode "dia":   siempre el mismo día del mes (1..28; en meses más cortos cae al último día).
+//   mode "habil": el N° hábil (1..23) de ese mes.
+function esFechaAporte(iso, aportes){
+  if(!aportes || !(+aportes.monto > 0)) return false;
+  const dia = +iso.slice(8,10);
+  if(aportes.mode === "habil"){
+    const hab = Math.min(23, Math.max(1, +aportes.hab || 1));
+    let n = 0;
+    for(let d = 1; d <= dia; d++){
+      const dIso = iso.slice(0,7) + "-" + String(d).padStart(2,"0");
+      if(esDiaHabil(dIso)) n++;
+      if(n > hab) break;
+    }
+    return n === hab && esDiaHabil(iso);
+  }
+  const objetivo = Math.min(Math.max(1, +aportes.dia || 1), diasDelMes(iso));
+  return dia === objetivo;
+}
+function aportesMonto(ap){
+  if(!ap) return 0;
+  const m = +ap.monto || 0;
+  return m > 0 ? m : 0;
+}
+// Suma de los aportes registrados: la base de interés en modo "sin reinvertir"
+// (idéntico a tl.depositado, calculado sin depender del timeline — así los
+// puntos de entrada que no tienen timeline (botones, inputs) usan la misma base).
+function depositadoContribs(){ return state.contributions.reduce((s,c)=> s + (+c.amount || 0), 0); }
+// ¿Cuántos días no hábiles quedaron "abiertos" al día de hoy? Si hoy no es hábil
+// (sáb/dom/feriado) MP aún no abona: esos días se capitalizan y se pagan juntos en
+// el próximo día hábil — la proyección debe arrancar desde ahí, igual que el historial.
+function streakPendienteHoy(){
+  let pend = 0, iso = hoyISO();
+  while(!esDiaHabil(iso) && pend < 14){ pend++; iso = addDiasISO(iso, -1); }
+  return pend;
+}
+// Días para alcanzar la meta replicando EXACTAMENTE las reglas del historial
+// (rachas de días no hábiles, abono con factor (1+d)^nD, y el momento en que
+// rinde cada aporte). base0: base sobre la que rinde el interés (con reinversión
+// = el propio saldo; sin reinversión = solo los aportes reales, como en el historial).
+// Tope del horizonte de estimación (60 años): evita bucles eternos si la meta es inalcanzable.
+const CAP_DIAS_META = 365 * 60;
+function diasParaMetaConAportes(current, meta, aportes, base0){
+  const daily = dailyRate(state.tasa, state.tasaType);
+  const mensual = aportesMonto(aportes);
+  if(daily <= 0 && mensual <= 0) return null;
+  let base = (base0 != null ? base0 : current);
+  let bal = current;
+  let pend = streakPendienteHoy();
+  let dias = 0;
+  while(bal < meta && dias < CAP_DIAS_META){
+    dias++;
+    const iso = addDiasISO(hoyISO(), dias);
+    const ap = esFechaAporte(iso, aportes) ? mensual : 0;
+    if(!esDiaHabil(iso)){
+      base += ap; bal += ap; pend++;
+      continue;
+    }
+    const nD = pend + 1;
+    const ini = (daily > 0 && base > 0) ? base * (Math.pow(1 + daily, nD) - 1) : 0;
+    bal += ini;
+    if(state.compound) base += ini;
+    base += ap;
+    pend = 0;
+  }
+  if(bal < meta) return null;
+  return { dias, fecha: addDiasISO(hoyISO(), dias) };
+}
+
+function renderGoal(current, tl){
+  const box = $("goalResult");
+  box.classList.remove("reached");
+  if(!state.contributions.length){ box.textContent = "Registra un aporte primero 😊"; return; }
+  if(!(state.meta > 0)){ box.textContent = "Poné una meta arriba y te calculo cuándo llegás 🎯"; return; }
+  const nombre = state.metaName ? " «" + escapeHtml(state.metaName) + "»" : "";
+  const pct = 100 * current / state.meta;
+  const bar = `<div class="goal-bar"><div class="goal-fill" style="width:${Math.min(100, pct).toFixed(1)}%"></div></div>`;
+  if(pct >= 100){
+    box.classList.add("reached");
+    box.innerHTML = `🎉 ¡Meta${nombre} alcanzada! Tu fondo ya va por ${fmt$(current)}.<div style="margin-top:10px">${bar}</div>`;
+    if(!confettiShown){ confettiShown = true; confettiBurst(); }
+    return;
+  }
+  confettiShown = false;
+  let html = `Llevás el <b>${Math.round(pct)}%</b> de tu meta${nombre} (${fmt$(state.meta)}): te faltan <b>${fmt$(state.meta - current)}</b>.<div style="margin:10px 0">${bar}</div>`;
+  const daily = dailyRate(state.tasa, state.tasaType);
+  const sinAportes = { monto: 0, mode: "dia", dia: 1, hab: 1 };
+  const base0 = state.compound ? current : (tl ? tl.depositado : depositadoContribs());
+  let baseDias = null;
+  if(daily <= 0){
+    html += `Con tasa 0%, sin aportar más no llegarías a la meta.<br>`;
+  } else {
+    // Mismo motor que el historial: con reinversión coincide con la fórmula cerrada;
+    // sin reinversión el interés crece casi linealmente (solo rinden los aportes).
+    const rSin = diasParaMetaConAportes(current, state.meta, sinAportes, base0);
+    if(rSin){
+      baseDias = rSin.dias;
+      const p = textoPeriodo(baseDias);
+      html += `Sin aportar más y a la tasa actual (${state.tasa}% ${state.tasaType}), la alcanzas en unos <b>${baseDias} días</b>${p ? " (≈ " + p + ")" : ""} → hacia el <b>${fmtFecha(rSin.fecha)}</b>.<br>`;
+    } else {
+      html += `Sin aportar más, no llegarías a la meta en el horizonte que miro (≈ ${Math.round(CAP_DIAS_META / 365)} años).<br>`;
+    }
+  }
+  const aportes = state.aporteExtra;
+  const mensual = aportesMonto(aportes);
+  const labelDia = labelAporteMes(aportes);
+  if(mensual > 0){
+    const r = diasParaMetaConAportes(current, state.meta, aportes, base0);
+    if(r){
+      html += `Metiendo <b>${fmt$(mensual)}</b> ${labelDia}, llegás en <b>${r.dias} días</b> → hacia el <b>${fmtFecha(r.fecha)}</b>`;
+      if(baseDias && baseDias > r.dias) html += ` <span class="hint">(${baseDias - r.dias} días antes que sin estos aportes 🚀)</span>`;
+      html += ".<br>";
+    } else {
+      html += `Con <b>${fmt$(mensual)}/mes</b> no alcanza para la meta en el horizonte que miro: probá un aporte mayor.<br>`;
+    }
+  } else {
+    html += `<span class="hint">Probá poner un aporte mensual extra para ver cómo llegar antes 🚀</span>`;
+  }
+  box.innerHTML = html;
+}
+
+/* ================= Retiro simulado ================= */
+function renderWithdrawal(){
+  const box = $("wtResult");
+  box.classList.remove("reached");
+  if(!state.contributions.length){ box.textContent = "Registra un aporte primero 😊"; return; }
+  const fecha = $("wtDate").value;
+  const amt = parseFloat($("wtAmount").value);
+  if(!fecha){ box.textContent = "Elegí la fecha y el monto a retirar 💸"; return; }
+  if(!(amt > 0)){ box.textContent = `El ${fmtFecha(fecha)} el fondo tendría ${fmt$(simulate(state.contributions, state.tasa, fecha).balance)}. Poné un monto a retirar 💸`; return; }
+  if(fecha < hoyISO()){ box.textContent = `Elegí una fecha de hoy (${fmtFecha(hoyISO())}) o más adelante.`; return; }
+  const hoy = calcBalanceHoy();
+  const full = simulate(state.contributions, state.tasa, fecha).balance;
+  if(amt > full){ box.textContent = `El ${fmtFecha(fecha)} el fondo tendría ${fmt$(full)}: no alcanza para retirar ${fmt$(amt)}.`; return; }
+  const restante = full - amt;
+  let html = `Hoy tenés <b>${fmt$(hoy)}</b>. El <b>${fmtFecha(fecha)}</b> el fondo tendría <b>${fmt$(full)}</b>; al retirar <b>${fmt$(amt)}</b> te quedarían <b>${fmt$(restante)}</b>.<br>`;
+  if(state.meta > 0 && hoy < state.meta && restante < state.meta){
+    const daily = dailyRate(state.tasa, state.tasaType);
+    if(daily > 0){
+      const antes = Math.ceil(Math.log(state.meta / hoy) / Math.log(1 + daily));
+      const despues = Math.ceil(Math.log(state.meta / restante) / Math.log(1 + daily));
+      html += `Tu meta (${fmt$(state.meta)}) pasa de ~<b>${antes} días</b> a ~<b>${despues} días</b>.<br>`;
+    }
+  }
+  html += restante < hoy
+    ? `<span class="hint">⚠️ Ojo: tras el retiro estarías por debajo de tu saldo de hoy.</span>`
+    : `<span class="hint">Tras el retiro seguirías por encima de tu saldo de hoy 👌.</span>`;
+  box.innerHTML = html;
+}
+
+/* ================= Proyección ================= */
+// Replica EXACTAMENTE las reglas del historial (buildTimeline):
+//  - sábados, domingos y feriados no abonan: se acumulan y el próximo día hábil
+//    se abona la racha completa con factor (1+d)^nD;
+//  - un aporte hecho en día NO hábil entra al saldo base y cobra la racha completa
+//    (igual que en el historial);
+//  - un aporte en día hábil empieza a rendir al día siguiente;
+//  - si hoy no es día hábil, la primera racha incluye los días ya acumulados.
+// Con aporte extra = 0, la proyección coincide céntimo a céntimo con extender
+// el propio historial. base0: base sobre la que rinde el interés (con reinversión
+// = el saldo actual; sin reinversión = solo los aportes reales).
+function proyectarFuturo(current, n, aportes, base0){
+  const daily = dailyRate(state.tasa, state.tasaType);
+  const mensual = aportesMonto(aportes);
+  let base = (base0 != null ? base0 : current);
+  let bal = current;
+  let pend = streakPendienteHoy();
+  let aporteTotal = 0, nAportes = 0;
+  const fechasAporte = [];
+  for(let i = 1; i <= n; i++){
+    const iso = addDiasISO(hoyISO(), i);
+    const ap = esFechaAporte(iso, aportes) ? mensual : 0;
+    if(ap > 0){
+      aporteTotal += ap;
+      nAportes++;
+      fechasAporte.push(iso);
+    }
+    if(!esDiaHabil(iso)){
+      base += ap;
+      bal += ap;
+      pend++;
+      continue;
+    }
+    const nD = pend + 1;
+    const ini = (daily > 0 && base > 0) ? base * (Math.pow(1 + daily, nD) - 1) : 0;
+    bal += ini;
+    if(state.compound) base += ini;
+    base += ap;
+    pend = 0;
+  }
+  const ultimos = fechasAporte.slice(-5).slice().reverse();
+  return { balance: bal, aporteTotal, nAportes, ultimosFechas: ultimos };
+}
+function labelAporteMes(a){
+  if(!a || !(+a.monto > 0)) return "cada mes";
+  if(a.mode === "habil") return "el día hábil " + (a.hab || 1) + " de cada mes";
+  return "el día " + (a.dia || 1) + " de cada mes";
+}
+function renderProjection(current, tl){
+  const res = $("projResult");
+  if(!state.contributions.length){ res.textContent = "Registra un aporte primero 😊"; return; }
+  const n = Math.max(1, parseInt($("projDays").value || "0", 10));
+  const aportes = state.aporteExtra;
+  const mensual = aportesMonto(aportes);
+  const base0 = state.compound ? current : (tl ? tl.depositado : depositadoContribs());
+  const sinAportes = { monto: 0, mode: "dia", dia: 1, hab: 1 };
+  if(mensual > 0){
+    const r = proyectarFuturo(current, n, aportes, base0);
+    const rSin = proyectarFuturo(current, n, sinAportes, base0);
+    const extra = r.balance - rSin.balance;
+    res.innerHTML = "Con <b>" + fmt$(current) + "</b> hoy + <b>" + fmt$(mensual) + "</b> " + labelAporteMes(aportes) + " → en <b>" + n + " días</b> tendrías <b>" + fmt$(r.balance) + "</b><br>";
+    res.innerHTML += '<span class="hint">' + r.nAportes + " aporte(s) por " + fmt$(r.aporteTotal) + " · " + fmt$(extra) + " más que sin aportes</span>";
+  } else {
+    const rSin = proyectarFuturo(current, n, sinAportes, base0);
+    res.textContent = "Con " + fmt$(current) + " hoy → en " + n + " días tendrías " + fmt$(rSin.balance) + "  (+" + fmt$(rSin.balance - current) + " de intereses)";
+  }
+}
+
+/* ================= Acciones ================= */
+function calcBalanceHoy(){
+  return simulate(state.contributions, state.tasa, hoyISO()).balance;
+}
+function addContrib(){
+  const date = $("apDate").value || hoyISO();
+  const amount = parseFloat($("apAmount").value);
+  const note = $("apNote").value.trim();
+  if(!(amount > 0)){ toast("Ingresá un monto válido 💸","err"); return; }
+  if(date > hoyISO()){ toast("La fecha no puede ser futura: usá hoy o una fecha anterior 📅","warn"); return; }
+  state.contributions.push({ id:newId(), date, amount, note });
+  save(); renderAll();
+  toast("Aporte de " + fmt$(amount) + " sumado ✅","ok");
+  $("apAmount").value = ""; $("apNote").value = "";
+  const tot = $("stTotal").parentElement;
+  tot.animate([{ background:"#1f7a4c55" }, { background:"transparent" }], { duration: 800 });
+}
+async function guardarArchivo(filename, data){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([data], { type:"text/plain;charset=utf-8" }));
+  a.download = filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+function exportBackup(){ guardarArchivo("ahorrometro-respaldo.json", JSON.stringify(state, null, 2)); }
+function importBackup(file){
+  const r = new FileReader();
+  r.onload = async ()=>{
+    try{
+      const d = JSON.parse(r.result);
+      if(!d || !Array.isArray(d.contributions)) throw new Error("formato");
+      const ok = await askModal({ title:"Restaurar respaldo", msg:"Esto reemplaza tus datos actuales por los del archivo. ¿Seguir?", danger:true, okLabel:"Restaurar" });
+      if(!ok) return;
+      localStorage.setItem(LS_KEY, JSON.stringify(d));
+      location.reload();
+    }catch(e){ toast("El archivo no parece un respaldo válido del Ahorrómetro.","err"); }
+  };
+  r.readAsText(file);
+}
+function exportCSV(){
+  const contribs = [...state.contributions].sort((a,b)=>a.date.localeCompare(b.date));
+  let csv = "\uFEFFfecha;nota;aporte\n";
+  for(const c of contribs) csv += [c.date, String(c.note||"").replace(/[;\r\n]/g," "), c.amount].join(";") + "\n";
+  guardarArchivo("ahorrometro.csv", csv);
+}
+
+document.addEventListener("click", async e=>{
+  const t = e.target;
+  const delBtn = t.closest(".del[data-id]");
+  if(delBtn){
+    const id = delBtn.dataset.id;
+    const c = state.contributions.find(x => x.id === id);
+    const ok = await askModal({ title:"Eliminar aporte", msg:"¿Eliminar el aporte de " + (c ? fmt$(c.amount) + " del " + fmtFecha(c.date) : "ese día") + "?", danger:true, okLabel:"Eliminar" });
+    if(ok){
+      state.contributions = state.contributions.filter(x => x.id !== id);
+      save(); renderAll();
+      toast("Aporte eliminado","warn");
+    }
+    return;
+  }
+  const pd = t.closest("[data-pd]");
+  if(pd){ $("projDays").value = pd.dataset.pd; renderProjection(calcBalanceHoy()); return; }
+  if(t === $("btnAdd")) addContrib();
+  if(t === $("btnProj")) renderProjection(calcBalanceHoy());
+  if(t === $("pillTNA")){ state.tasaType = "TNA"; save(); renderAll(); }
+  if(t === $("pillTAE")){ state.tasaType = "TAE"; save(); renderAll(); }
+  if(t === $("btnClear")){
+    if(!state.contributions.length) return;
+    const ok = await askModal({ title:"⚠️ Borrar todo", msg:"Se borran TODOS los aportes y la calibración de días. Esta acción no se puede deshacer.", danger:true, okLabel:"Borrar todo" });
+    if(ok){
+      state.contributions = []; state.diaAjuste = {};
+      save(); renderAll();
+      toast("Historial borrado","warn");
+    }
+    return;
+  }
+  if(t === $("btnExport")) exportCSV();
+  if(t === $("btnCopy")) copiarResumen();
+  const useReal = t.closest && t.closest("#btnUseReal");
+  if(useReal){
+    state.tasa = parseFloat(useReal.dataset.val);
+    $("tasaInput").value = state.tasa;
+    save(); renderAll();
+    return;
+  }
+  if(t === $("btnFeriado")){
+    const f = $("ferDate").value;
+    if(!f) toast("Elegí una fecha de feriado 📅","warn");
+    else if(esFeriado(f)) toast("Ese día ya está en la lista de feriados","warn");
+    else{ state.feriados.push(f); save(); renderAll(); toast("Feriado agregado: " + fmtFecha(f) + " ✅","ok"); }
+    $("ferDate").value = "";
+    return;
+  }
+  const ferLoad = t.closest && t.closest("[data-fer-load]");
+  if(ferLoad){
+    precargarFeriados(ferLoad.getAttribute("data-fer-load"));
+    return;
+  }
+  const ferClear = t.closest && t.closest("[data-fer-clear]");
+  if(ferClear){
+    await vaciarFeriados();
+    return;
+  }
+  const ferDel = t.closest && t.closest("[data-fer-del]");
+  if(ferDel){
+    e.preventDefault();
+    state.feriados = state.feriados.filter(x => x !== ferDel.getAttribute("data-fer-del"));
+    save(); renderAll();
+    return;
+  }
+  const dayEl = t.closest && t.closest("[data-iso]");
+  if(dayEl){
+    await calibrarDia(dayEl.getAttribute("data-iso"));
+    return;
+  }
+  const undEl = t.closest && t.closest("[data-iso-und]");
+  if(undEl){
+    undoCalibrarDia(undEl.getAttribute("data-iso-und"));
+    return;
+  }
+  if(t === $("btnMeta2x")){
+    const dep = calcBalanceHoy();
+    state.meta = Math.ceil(dep * 2 / 100) * 100;
+    save(); renderAll();
+  }
+  if(t === $("btnMetaPlus")){
+    const cur = calcBalanceHoy();
+    state.meta = Math.ceil(cur * 1.5 / 100) * 100;
+    save(); renderAll();
+  }
+});
+$("apAmount").addEventListener("keydown", e=>{ if(e.key==="Enter") addContrib(); });
+$("tasaInput").addEventListener("input", ()=>{
+  const v = parseFloat($("tasaInput").value);
+  if(isFinite(v) && v >= 0 && v <= 500){
+    state.tasa = v;
+    save(); renderAll();
+  }
+});
+$("projDays").addEventListener("input", ()=> renderProjection(calcBalanceHoy()));
+$("metaInput").addEventListener("input", ()=>{
+  const v = parseFloat($("metaInput").value);
+  state.meta = (isFinite(v) && v > 0) ? v : null;
+  save(); renderGoal(calcBalanceHoy());
+});
+$("metaInput").addEventListener("blur", e=>{
+  if(!e.target.value.trim()){ state.meta = null; save(); renderGoal(calcBalanceHoy()); }
+});
+
+$("metaName").addEventListener("input", ()=>{
+  state.metaName = $("metaName").value.trim();
+  save(); renderGoal(calcBalanceHoy());
+});
+function actualizarVisibilidadAporteExtra(){
+  var modo = $("apExtraMode").value;
+  $("extraDiaRow").style.display  = modo === "dia"   ? "flex" : "none";
+  $("extraHabRow").style.display = modo === "habil" ? "flex" : "none";
+}
+function refAporte() { var bal = calcBalanceHoy(); renderGoal(bal); renderProjection(bal); }
+$("apExtraMonto").addEventListener("input", function(){
+  var v = parseFloat($("apExtraMonto").value);
+  state.aporteExtra.monto = (isFinite(v) && v >= 0) ? v : 0;
+  save(); actualizarVisibilidadAporteExtra(); refAporte();
+});
+$("apExtraDia").addEventListener("input", function(){
+  var v = parseInt($("apExtraDia").value, 10);
+  if(isFinite(v) && v >= 1 && v <= 28) state.aporteExtra.dia = v;
+  save(); refAporte();
+});
+$("apExtraHab").addEventListener("input", function(){
+  var v = parseInt($("apExtraHab").value, 10);
+  if(isFinite(v) && v >= 1 && v <= 23) state.aporteExtra.hab = v;
+  save(); refAporte();
+});
+$("apExtraMode").addEventListener("change", function(){
+  state.aporteExtra.mode = $("apExtraMode").value;
+  save(); actualizarVisibilidadAporteExtra(); refAporte();
+});
+document.addEventListener("click", e=>{
+  const g = e.target.closest("[data-gname]");
+  if(g){
+    state.metaName = g.dataset.gname;
+    $("metaName").value = g.dataset.gname;
+    save(); renderAll();
+  }
+  if(e.target === $("btnWt")) renderWithdrawal();
+});
+$("wtDate").addEventListener("input", renderWithdrawal);
+$("wtAmount").addEventListener("input", renderWithdrawal);
+
+$("btnBackup").addEventListener("click", exportBackup);
+$("btnRestore").addEventListener("click", ()=> $("fileRestore").click());
+$("fileRestore").addEventListener("change", e=>{ const f = e.target.files[0]; if(f) importBackup(f); e.target.value = ""; });
+$("compoundChk").addEventListener("change", ()=>{ state.compound = $("compoundChk").checked; save(); renderAll(); });
+let resizeT; window.addEventListener("resize", ()=>{ clearTimeout(resizeT); resizeT = setTimeout(renderAll, 150); });
+
+/* ================= Init ================= */
+load();
+initTheme();
+$("compoundChk").checked = state.compound;
+$("tasaInput").value = state.tasa;
+if(state.meta > 0) $("metaInput").value = state.meta;
+if(state.metaName) $("metaName").value = state.metaName;
+if(state.aporteExtra.monto > 0) $("apExtraMonto").value = state.aporteExtra.monto;
+$("apExtraMode").value = state.aporteExtra.mode;
+if(state.aporteExtra.dia) $("apExtraDia").value = state.aporteExtra.dia;
+if(state.aporteExtra.hab) $("apExtraHab").value = state.aporteExtra.hab;
+actualizarVisibilidadAporteExtra();
+$("wtDate").value = hoyISO();
+$("wtDate").min = hoyISO();
+$("apDate").value = hoyISO();
+$("apDate").max = hoyISO();
+renderAll();
+// Repinta tras el primer paint: asegura que el chart mida el ancho ya asentado
+// (evita el flash de ancho incorrecto en el render inicial).
+requestAnimationFrame(()=>renderAll());
+</script>
+</body>
+</html>
